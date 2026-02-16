@@ -1,18 +1,26 @@
 import { Request, Response, NextFunction } from "express";
-import { MockAuthService } from "../services/auth/MockAuthService";
+import jwt from "jsonwebtoken";
 
-const authService = new MockAuthService();
+const SECRET = "mysecret";
 
-export async function authenticate(
+export const authenticate = (
   req: Request,
   res: Response,
   next: NextFunction
-) {
-  const token = req.headers.authorization;
+) => {
+  const header = req.headers.authorization;
 
-  if (!token || !(await authService.verify(token))) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!header) {
+    return res.status(401).json({ message: "No token provided" });
   }
 
-  next();
-}
+  const token = header.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, SECRET);
+    (req as any).user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};

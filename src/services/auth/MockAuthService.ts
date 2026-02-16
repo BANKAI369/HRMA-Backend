@@ -1,12 +1,15 @@
 import { AuthService } from "./AuthService";
 
 export class MockAuthService implements AuthService {
-
-  async login(email: string, password: string): Promise<string> {
-    return `mock-token-${email}`;
+  generateToken(payload: any): string {
+    return Buffer.from(JSON.stringify(payload)).toString("base64");
   }
 
-  async verify(token: string): Promise<boolean> {
-    return token.startsWith("mock-token-");
+  verifyToken(token: string): any {
+    try {
+      return JSON.parse(Buffer.from(token, "base64").toString());
+    } catch {
+      throw new Error("Invalid Token");
+    }
   }
 }

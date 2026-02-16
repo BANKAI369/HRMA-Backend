@@ -8,3 +8,6 @@ build/
 .vscode/
 .idea/
 .env
+package-lock.json yarn.lock
+yarn.lock.old
+yarn-error.log

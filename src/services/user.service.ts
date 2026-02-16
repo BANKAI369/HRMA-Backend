@@ -1,39 +1,30 @@
-import { User, users } from "../models/user.model";
-import { randomUUID } from "crypto";
+import { User } from "../models/user.model";
 
-export class UserService {
+class UserService {
+  private users: User[] = [
+    {
+      id: 1,
+      name: "Admin",
+      email: "admin@test.com",
+      password: "1234",
+      role: "admin",
+    },
+    {
+      id: 2,
+      name: "Sameer",
+      email: "user@test.com",
+      password: "1234",
+      role: "user",
+    },
+  ];
 
-  static getAll(): User[] {
-    return users;
+  getAll() {
+    return this.users;
   }
 
-  static getById(id: string): User | undefined {
-    return users.find(user => user.id === id);
-  }
-
-  static create(data: Omit<User, "id">): User {
-    const newUser: User = {
-      id: randomUUID(),
-      ...data,
-    };
-
-    users.push(newUser);
-    return newUser;
-  }
-
-  static update(id: string, data: Partial<Omit<User, "id">>): User | null {
-    const user = this.getById(id);
-    if (!user) return null;
-
-    Object.assign(user, data);
-    return user;
-  }
-
-  static delete(id: string): boolean {
-    const index = users.findIndex(user => user.id === id);
-    if (index === -1) return false;
-
-    users.splice(index, 1);
-    return true;
+  findByEmail(email: string) {
+    return this.users.find((u) => u.email === email);
   }
 }
+
+export const userService = new UserService();
