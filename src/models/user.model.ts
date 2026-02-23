@@ -1,8 +1,8 @@
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  role: "ADMIN" | "USER";
+  password: string;
+  status: "ACTIVE" | "INACTIVE";
 }
-
-export const users: User[] = [];

@@ -1,39 +1,41 @@
-import { User, users } from "../models/user.model";
-import { randomUUID } from "crypto";
+import { User } from "../models/user.model";
+import bcrypt from "bcrypt";
+
+const users: User[] = [];
 
 export class UserService {
-
-  static getAll(): User[] {
-    return users;
-  }
-
-  static getById(id: string): User | undefined {
-    return users.find(user => user.id === id);
-  }
-
-  static create(data: Omit<User, "id">): User {
-    const newUser: User = {
-      id: randomUUID(),
+  async create(data: Omit<User, "id">) {
+    const user: User = {
       ...data,
+      id: Date.now().toString(),
+      password: await bcrypt.hash(data.password, 10),
     };
 
-    users.push(newUser);
-    return newUser;
-  }
-
-  static update(id: string, data: Partial<Omit<User, "id">>): User | null {
-    const user = this.getById(id);
-    if (!user) return null;
-
-    Object.assign(user, data);
+    users.push(user);
     return user;
   }
 
-  static delete(id: string): boolean {
-    const index = users.findIndex(user => user.id === id);
-    if (index === -1) return false;
+  findAll() {
+    return users;
+  }
 
-    users.splice(index, 1);
-    return true;
+  findById(id: string) {
+    return users.find(u => u.id === id);
+  }
+
+  update(id: string, updates: Partial<User>) {
+    const user = users.find(u => u.id === id);
+    if (!user) return null;
+
+    Object.assign(user, updates);
+    return user;
+  }
+
+  delete(id: string) {
+    const index = users.findIndex(u => u.id === id);
+    if (index === -1) return null;
+
+    const removed = users.splice(index, 1);
+    return removed[0];
   }
 }

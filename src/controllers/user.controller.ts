@@ -1,51 +1,31 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service";
 
-export class UserController {
+const service = new UserService();
 
-  static getUsers(req: Request, res: Response) {
-    res.json(UserService.getAll());
-  }
+export async function createUser(req: Request, res: Response) {
+  const user = await service.create(req.body);
+  res.status(201).json(user);
+}
 
-  static getUser(req: Request, res: Response) {
-    const user = UserService.getById(req.params.id);
+export function getUsers(req: Request, res: Response) {
+  res.json(service.findAll());
+}
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+export function getUserById(req: Request, res: Response) {
+  const user = service.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: "Not found" });
+  res.json(user);
+}
 
-    return res.json(user);
-  }
+export function updateUser(req: Request, res: Response) {
+  const user = service.update(req.params.id, req.body);
+  if (!user) return res.status(404).json({ message: "Not found" });
+  res.json(user);
+}
 
-  static createUser(req: Request, res: Response) {
-    const { name, email, role } = req.body;
-
-    if (!name || !email || !role) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const user = UserService.create({ name, email, role });
-
-    return res.status(201).json(user);
-  }
-
-  static updateUser(req: Request, res: Response) {
-    const user = UserService.update(req.params.id, req.body);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.json(user);
-  }
-
-  static deleteUser(req: Request, res: Response) {
-    const success = UserService.delete(req.params.id);
-
-    if (!success) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.sendStatus(204);
-  }
+export function deleteUser(req: Request, res: Response) {
+  const user = service.delete(req.params.id);
+  if (!user) return res.status(404).json({ message: "Not found" });
+  res.json({ message: "Deleted successfully" });
 }
