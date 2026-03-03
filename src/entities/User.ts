@@ -1,49 +1,60 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
+  ManyToMany,
+  ManyToOne,
+  JoinTable,
+  JoinColumn,
 } from "typeorm";
+import { Role } from "./Role";
+import { Department } from "./Department";
+import { BaseEntity } from "./base.entity";
 
-@Entity({ name: "users" })
-export class User {
-  @PrimaryGeneratedColumn()
-  id!: number;
+@Entity("users")
+export class User extends BaseEntity {
 
-  @Column({
-    type: "varchar",
-    length: 150,
-    unique: true,
+  @Column()
+  username: string;
+
+  @Column({ unique: true, length: 150 })
+  email: string;
+
+  @Column({ length: 255 })
+  password: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ nullable: true })
+  resetToken: string;
+
+  @Column({ type: "timestamptz", nullable: true })
+  resetTokenExpiry: Date;
+
+  /**
+   * User - Department
+   */
+  @ManyToOne(() => Department, (department) => department.users, {
+    nullable: true,
+    onDelete: "SET NULL",
   })
-  email!: string;
+  @JoinColumn({ name: "department_id" })
+  department: Department;
 
-  @Column({
-    type: "varchar",
-    length: 255,
+  /**
+   * User - Role
+   */
+  @ManyToMany(() => Role, (role) => role.users)
+  @JoinTable({
+    name: "user_roles",
+    joinColumn: {
+      name: "user_id",
+      referencedColumnName: "id",
+    },
+    inverseJoinColumn: {
+      name: "role_id",
+      referencedColumnName: "id",
+    },
   })
-  password!: string;
-
-  @Column({
-    type: "varchar",
-    length: 100,
-    default: "user",
-  })
-  role!: string;
-
-  @Column({
-    type: "boolean",
-    default: true,
-  })
-  isActive!: boolean;
-
-  @CreateDateColumn({
-    type: "timestamp",
-  })
-  createdAt!: Date;
-
-  @UpdateDateColumn({
-    type: "timestamp",
-  })
-  updatedAt!: Date;
+  roles: Role[];
 }
