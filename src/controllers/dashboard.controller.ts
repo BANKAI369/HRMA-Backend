@@ -18,9 +18,14 @@ const resolveRequestRole = (req: AuthRequest): string | null => {
 export async function getDashboardMetrics(req: AuthRequest, res: Response) {
   try {
     const role = resolveRequestRole(req);
-    const userId = req.user?.username;
-    const userEmail =
-      typeof req.user?.email === "string" ? req.user.email : undefined;
+    const userId = typeof req.user?.id === "string" ? req.user.id : undefined;
+    const userEmail = req.user?.email || null;
+    const userName =
+      typeof req.user?.username === "string"
+        ? req.user.username
+        : typeof req.user?.["cognito:username"] === "string"
+        ? req.user["cognito:username"]
+        : undefined;
 
     if (!role || !userId) {
       return res.status(403).json({ message: "Forbidden" });
@@ -29,7 +34,7 @@ export async function getDashboardMetrics(req: AuthRequest, res: Response) {
     const metrics = await dashboardService.getMetrics(
       role,
       userId || "",
-      userEmail
+      userEmail || undefined
     );
     res.status(200).json(metrics);
   } catch (error: any) {

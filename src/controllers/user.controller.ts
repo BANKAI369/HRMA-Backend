@@ -151,9 +151,14 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
     const currentUserId = req.user?.id;
-    const currentUserEmail =
-      typeof req.user?.email === "string" ? req.user.email : null;
-    if (!currentUserId && !currentUserEmail) {
+    const currentUserEmail = req.user?.email || null;
+    const currentUserName =
+      typeof req.user?.username === "string"
+        ? req.user.username
+        : typeof req.user?.["cognito:username"] === "string"
+        ? req.user["cognito:username"]
+        : null;
+    if (!currentUserId && !currentUserEmail && !currentUserName) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
