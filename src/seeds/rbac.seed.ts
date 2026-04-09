@@ -15,6 +15,10 @@ export const seedRBAC = async () => {
     "delete_user",
     "view_users",
     "assign_role",
+    "manage_roles",
+    "view_roles",
+    "view_permissions",
+    "assign_role_permissions",
     "create_department",
     "update_department",
     "delete_department",
@@ -51,7 +55,7 @@ export const seedRBAC = async () => {
 
   const adminPermissions = permissionEntities;
   const managerPermissions = permissionEntities.filter((p) =>
-    ["create_user", "update_user", "view_users"].includes(p.name)
+    ["create_user", "update_user", "view_users", "view_self"].includes(p.name)
   );
   const employeePermissions = permissionEntities.filter(
     (p) => p.name === "view_self"
