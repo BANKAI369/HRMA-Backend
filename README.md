@@ -1,7 +1,7 @@
- USER AND ROLE MANAGEMENT SYSTEM
+ NEST BACKEND
 
 #Overview
-This is a TypeScript-based Node.js backend built using Express. It serves as the foundation for a User & Role Management System.
+This is a TypeScript-based Node.js backend built using Express. It serves as the foundation for the NEST platform.
 
 Tech Stack
 
@@ -15,7 +15,7 @@ ORM: TypeORM (with migrations)
 Testing: Jest (TDD applied to backend)
 Cloud: AWS (initial deployment in week 3)
 
-The goal of this system is to progressively build a User Management Application with Role-Based Access Control (RBAC) and pluggable authentication providers
+The goal of this system is to progressively build the NEST application with role-based authorization and pluggable authentication providers.
 
 WEEK 1: Project Setup & Foundations
     JavaScript (ES6+)
@@ -110,7 +110,7 @@ WEEK 4: integrate frontend and deployed backend services
         connect frontend to deployed backend
         Signup,login and forget password are have fully integrated and running
 
-WEEK 5:React Screens to Manage Users, Roles & Permissions
+WEEK 5: React screens to manage NEST users, roles, and permissions
     Implementation:
         User management
         Role Management

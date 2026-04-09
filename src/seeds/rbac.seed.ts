@@ -6,6 +6,9 @@ export const seedRBAC = async () => {
   const roleRepo = AppDataSource.getRepository(Role);
   const permissionRepo = AppDataSource.getRepository(Permission);
 
+  console.log("🌱 Seeding NEST access control...");
+
+  // 1️⃣ Create Permissions
   const permissionsList = [
     "create_user",
     "update_user",
