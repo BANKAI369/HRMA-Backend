@@ -19,6 +19,7 @@ export {};
   const loadAuthController = async () => {
     jest.resetModules();
 
+<<<<<<< Updated upstream
     jest.doMock("../config/data-source", () => ({
       AppDataSource: {
         getRepository: jest.fn((entity: { name?: string }) => {
@@ -41,6 +42,15 @@ export {};
 
           return {};
         }),
+=======
+  it("register returns 201 on success", async () => {
+    const { register } = await loadAuthController();
+    const req: any = {
+      body: {
+        username: "admin",
+        email: "admin@nest.local",
+        password: "Admin@123",
+>>>>>>> Stashed changes
       },
     }));
 
@@ -52,6 +62,7 @@ export {};
     return import("../controllers/auth.controller");
   };
 
+<<<<<<< Updated upstream
   describe("auth.controller", () => {
     beforeEach(() => {
       jest.clearAllMocks();
@@ -60,6 +71,26 @@ export {};
     afterEach(() => {
       jest.resetModules();
     });
+=======
+    expect(mockRegister).toHaveBeenCalledWith(
+      "admin",
+      "admin@nest.local",
+      "Admin@123"
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(payload);
+  });
+
+  it("signIn returns 401 when authentication fails", async () => {
+    const { signIn } = await loadAuthController();
+    const req: any = {
+      body: {
+        email: "admin@nest.local",
+        password: "wrong-password",
+      },
+    };
+    const res = createResponse();
+>>>>>>> Stashed changes
 
     it("signUp returns 400 for invalid input", async () => {
       const { signUp } = await loadAuthController();
@@ -285,8 +316,21 @@ export {};
   });
 }
 
+<<<<<<< Updated upstream
 {
   const mockGetMetrics = jest.fn();
+=======
+  it("getCurrentAuthUser returns the synced user", async () => {
+    const { getCurrentAuthUser } = await loadAuthController();
+    const req: any = {
+      user: {
+        id: "user-1",
+        email: "admin@nest.local",
+      },
+    };
+    const res = createResponse();
+    const user = { id: "user-1", role: { name: "Admin" } };
+>>>>>>> Stashed changes
 
   const createResponse = () => {
     const res: any = {};
@@ -295,7 +339,27 @@ export {};
     return res;
   };
 
+<<<<<<< Updated upstream
   const loadDashboardController = async () => {
+=======
+    await getCurrentAuthUser(req, res);
+
+    expect(mockSyncUser).toHaveBeenCalledWith({
+      id: "user-1",
+      email: "admin@nest.local",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(user);
+  });
+});
+
+describe("dashboard.controller", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+>>>>>>> Stashed changes
     jest.resetModules();
 
     jest.doMock("../services/dashboard.service", () => ({
@@ -625,6 +689,7 @@ export {};
   });
 }
 
+<<<<<<< Updated upstream
 {
   const mockCreateRole = jest.fn();
   const mockFindAllRoles = jest.fn();
@@ -813,6 +878,16 @@ export {};
 
           return {};
         }),
+=======
+  it("passes the local request identity to the dashboard service", async () => {
+    const { getDashboardMetrics } = await loadDashboardController();
+    const req: any = {
+      user: {
+        id: "user-1",
+        username: "admin",
+        email: "admin@nest.local",
+        role: "Admin",
+>>>>>>> Stashed changes
       },
     }));
 
@@ -825,6 +900,7 @@ export {};
     return import("../controllers/user.controller");
   };
 
+<<<<<<< Updated upstream
   describe("user.controller", () => {
     beforeEach(() => {
       jest.clearAllMocks();
@@ -1140,5 +1216,14 @@ export {};
       );
       expect(res.json).toHaveBeenCalledWith(updatedUser);
     });
+=======
+    expect(mockGetMetrics).toHaveBeenCalledWith(
+      "Admin",
+      "user-1",
+      "admin@nest.local"
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(metrics);
+>>>>>>> Stashed changes
   });
 }

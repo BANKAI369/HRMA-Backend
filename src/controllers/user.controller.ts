@@ -191,7 +191,6 @@ export async function createUser(req: AuthRequest, res: Response) {
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const departmentRepo = AppDataSource.getRepository(Department);
     const parsed = idParamSchema.safeParse(req.params);
     if (!parsed.success) {
       return res.status(400).json({
@@ -210,6 +209,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+<<<<<<< Updated upstream
     const managedDepartments = user
       ? await departmentRepo.find({
           where: { manager: { id: user.id } },
@@ -230,15 +230,10 @@ export const deleteUser = async (req: Request, res: Response) => {
       }
     }
 
+=======
+>>>>>>> Stashed changes
     if (user) {
       await AppDataSource.transaction(async (transactionManager) => {
-        if (managedDepartments.length > 0) {
-          for (const department of managedDepartments) {
-            department.manager = null as any;
-            await transactionManager.save(Department, department);
-          }
-        }
-
         user.isActive = false;
         user.role = null;
         user.department = null;
@@ -634,23 +629,13 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    if (departmentId === null || departmentId === "") {
-      const managedDepartment = await departmentRepo.findOne({
-        where: { manager: { id: user.id } },
-        relations: ["manager"],
-      });
-
-      if (managedDepartment) {
-        managedDepartment.manager = null as any;
-        await departmentRepo.save(managedDepartment);
-      }
-    }
-
     if (isManagerAfterUpdate && nextDepartmentId) {
       const existingManager = await userRepo
         .createQueryBuilder("u")
         .leftJoin("u.role", "role")
-        .where("role.name = :roleName", { roleName: "Manager" })
+        .where("LOWER(role.name) = :roleName", {
+          roleName: Roles.Manager.toLowerCase(),
+        })
         .andWhere("u.departmentId = :departmentId", {
           departmentId: nextDepartmentId,
         })
@@ -661,50 +646,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         return res
           .status(400)
           .json({ message: "Department already has a manager" });
-      }
-
-      const existingManagerDept = await departmentRepo.findOne({
-        where: { manager: { id: user.id } },
-        relations: ["manager"],
-      });
-
-      if (existingManagerDept && existingManagerDept.id !== nextDepartmentId) {
-        return res
-          .status(400)
-          .json({ message: "Manager is already assigned to another department" });
-      }
-
-      const targetDepartment = await departmentRepo.findOne({
-        where: { id: nextDepartmentId },
-        relations: ["manager"],
-      });
-
-      if (!targetDepartment) {
-        return res.status(404).json({ message: "Department not found" });
-      }
-
-      if (
-        targetDepartment.manager &&
-        targetDepartment.manager.id !== user.id
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Department already has a manager" });
-      }
-
-      targetDepartment.manager = user;
-      await departmentRepo.save(targetDepartment);
-    }
-
-    if (!isManagerAfterUpdate) {
-      const managedDepartment = await departmentRepo.findOne({
-        where: { manager: { id: user.id } },
-        relations: ["manager"],
-      });
-
-      if (managedDepartment) {
-        managedDepartment.manager = null as any;
-        await departmentRepo.save(managedDepartment);
       }
     }
 

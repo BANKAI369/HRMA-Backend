@@ -1,6 +1,7 @@
 import { AppDataSource } from "../config/data-source";
 import { Department } from "../entities/Department";
 import { User } from "../entities/User";
+import { Roles } from "../utils/roles.enum";
 
 const userRepo = AppDataSource.getRepository(User);
 const departmentRepo = AppDataSource.getRepository(Department);
@@ -25,17 +26,25 @@ export class DashboardService {
     const topDepartmentsQuery = departmentRepo
       .createQueryBuilder("department")
       .leftJoin("department.employees", "employee")
-      .leftJoin("department.manager", "manager")
       .select("department.id", "id")
       .addSelect("department.name", "name")
       .addSelect("COUNT(employee.id)", "count")
-      .addSelect("manager.username", "manager")
+      .addSelect(
+        (subQuery) =>
+          subQuery
+            .select("manager.username")
+            .from(User, "manager")
+            .leftJoin("manager.role", "managerRole")
+            .where("manager.departmentId = department.id")
+            .andWhere("LOWER(managerRole.name) = :managerRoleName")
+            .limit(1),
+        "manager"
+      )
       .groupBy("department.id")
       .addGroupBy("department.name")
-      .addGroupBy("manager.id")
-      .addGroupBy("manager.username")
       .orderBy("COUNT(employee.id)", "DESC")
-      .limit(4);
+      .limit(4)
+      .setParameter("managerRoleName", Roles.Manager.toLowerCase());
 
     if (scope.departmentId) {
       topDepartmentsQuery.where("department.id = :departmentId", {

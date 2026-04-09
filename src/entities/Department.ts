@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import {
   Entity,
   Column,
@@ -6,6 +7,9 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+=======
+import { Column, Entity, OneToMany } from "typeorm";
+>>>>>>> Stashed changes
 import { BaseEntity } from "./base.entity";
 import { User } from "./User";
 
@@ -19,9 +23,13 @@ export class Department extends BaseEntity {
   // one department → many employees
   @OneToMany(() => User, (user) => user.department)
   employees: User[];
+<<<<<<< Updated upstream
 
   // department manager
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "managerId" })
   manager: User;
 }
+=======
+}
+>>>>>>> Stashed changes

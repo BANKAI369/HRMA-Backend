@@ -6,6 +6,12 @@ export const seedRBAC = async () => {
   const roleRepo = AppDataSource.getRepository(Role);
   const permissionRepo = AppDataSource.getRepository(Permission);
 
+<<<<<<< Updated upstream
+=======
+  console.log("🌱 Seeding NEST access control...");
+
+  // 1️⃣ Create Permissions
+>>>>>>> Stashed changes
   const permissionsList = [
     "create_user",
     "update_user",
@@ -61,4 +67,9 @@ export const seedRBAC = async () => {
   await roleRepo.save(roleEntities["Admin"]);
   await roleRepo.save(roleEntities["Manager"]);
   await roleRepo.save(roleEntities["Employee"]);
+<<<<<<< Updated upstream
+=======
+
+  console.log("NEST access control seed completed");
+>>>>>>> Stashed changes
 };

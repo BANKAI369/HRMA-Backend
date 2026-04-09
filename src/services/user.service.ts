@@ -15,6 +15,12 @@ type UpdateUserInput = Partial<User> & {
   password?: string;
 };
 
+<<<<<<< Updated upstream
+=======
+const buildTemporaryPassword = () =>
+  `NEST${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`;
+
+>>>>>>> Stashed changes
 export class UserService {
   async create(data: CreateUserInput) {
     const existing = await userRepo.findOne({

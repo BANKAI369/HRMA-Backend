@@ -9,6 +9,18 @@ const router = Router();
 router.post("/", authenticate, authorizeRoles("Admin"), controller.createRole);
 router.get("/", authenticate, authorizeRoles("Admin"), controller.getRoles);
 router.get("/:id", authenticate, authorizeRoles("Admin"), controller.getRole);
+router.post(
+  "/:id/permissions",
+  authenticate,
+  authorizeRoles("Admin"),
+  controller.assignPermissions
+);
+router.put(
+  "/:id/permissions",
+  authenticate,
+  authorizeRoles("Admin"),
+  controller.updatePermissions
+);
 router.delete("/:id", authenticate, authorizeRoles("Admin"), controller.deleteRole);
 
 export default router;
