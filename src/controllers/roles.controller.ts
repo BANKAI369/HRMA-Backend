@@ -7,6 +7,12 @@ import * as service from "../services/roles.service";
 
 const roleRepo = AppDataSource.getRepository(Role);
 
+const sendValidationError = (res: Response, error: z.ZodError) =>
+  res.status(400).json({
+    message: "Invalid request",
+    errors: error.flatten().fieldErrors,
+  });
+
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required"),
 });
@@ -79,9 +85,6 @@ export async function deleteRole(req: AuthRequest, res: Response){
     } catch (error: any) {
         res.status(404).json({message: error.message});
     }
-<<<<<<< Updated upstream
-}
-=======
 }
 
 export async function assignPermissions(req: AuthRequest, res: Response) {
@@ -129,4 +132,3 @@ export async function updatePermissions(req: AuthRequest, res: Response) {
     res.status(400).json({ message: error.message });
   }
 }
->>>>>>> Stashed changes
