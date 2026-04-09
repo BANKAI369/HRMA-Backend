@@ -1,18 +1,1 @@
-import { AppDataSource } from "../config/data-source";
-import { seedRBAC } from "./rbac.seed";
-import { seedAdmin } from "./admin.seed";
-
-
-const runSeeds = async () => {
-  await AppDataSource.initialize();
-
-  await seedRBAC();
-  await seedAdmin();
-
-  process.exit(0);
-};
-
-runSeeds().catch((error) => {
-  console.error("❌ Seed error:", error);
-  process.exit(1);
-});
+import "./seed";

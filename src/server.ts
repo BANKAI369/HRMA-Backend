@@ -1,19 +1,36 @@
-import app from "./app";
-import dotenv from "dotenv";
-import "reflect-metadata";
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
 import { AppDataSource } from "./config/data-source";
+import authRoutes from "./routes/auth.routes";
+import userRoutes from "./routes/user.routes";
 
-dotenv.config();
+const app = express();
+const port = Number(process.env.PORT || 4000);
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
-const PORT = 4000;
+app.use(
+  cors({
+    origin: frontendUrl,
+    credentials: true,
+  })
+);
+app.use(express.json());
+
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+
 AppDataSource.initialize()
   .then(() => {
-    console.log("Database connected successfully");
-
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    app.listen(port, () => {
+      console.log(`Backend running on port ${port}`);
     });
   })
-  .catch((err) => {
-    console.error("Error during Data Source initialization", err);
+  .catch((error) => {
+    console.error("Failed to initialize database connection", error);
+    process.exit(1);
   });

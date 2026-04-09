@@ -1,43 +1,33 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import jwksClient from "jwks-rsa";
 
 export interface AuthRequest extends Request {
   user?: any;
 }
 
-const client = jwksClient({
-  jwksUri:
-    "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_flAhaS7cD/.well-known/jwks.json",
-});
-
-function getKey(header: any, callback: any) {
-  client.getSigningKey(header.kid, function (err, key) {
-    const signingKey = key?.getPublicKey();
-    callback(null, signingKey);
-  });
-}
-
-export function authenticate(
-  req: AuthRequest,
+export const authenticate = (
+  req: Request,
   res: Response,
   next: NextFunction
-) {
-  const header = req.headers.authorization;
+) => {
+  const jwtSecret = process.env.JWT_SECRET || "hrma-local-secret";
+  const authHeader = req.headers.authorization;
 
-  if (!header || !header.startsWith("Bearer ")) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const token = header.split(" ")[1];
+  const token = authHeader.split(" ")[1];
 
-  jwt.verify(token, getKey, {}, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ message: "Invalid token" });
-    }
+  try {
+    const decoded = jwt.verify(
+      token,
+      jwtSecret
+    );
 
-    req.user = decoded;
-    console.log("decoded user " + decoded);
+    (req as any).user = decoded;
     next();
-  });
-}
+  } catch {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};

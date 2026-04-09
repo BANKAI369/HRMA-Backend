@@ -1,22 +1,24 @@
 import { Router } from "express";
-import {
-  getUsers,
-  getUser,
-  updateUser,
-  deleteUser,
-  createUser,
-  getUsersByDepartment,
-} from "../controllers/user.controller";
 import { authenticate } from "../middleware/auth.middleware";
-import { authorizeRoles } from "../middleware/role.middleware";
+import {
+  createUser,
+  deleteUser,
+  getCurrentUser,
+  getUser,
+  getUsers,
+  getUsersByDepartment,
+  updateUser,
+} from "../controllers/user.controller";
 
 const router = Router();
 
-router.post("/", authenticate, authorizeRoles("Admin", "Manager"), createUser);
-router.get("/", authenticate, authorizeRoles("Admin"), getUsers);
-router.get("/department", authenticate, authorizeRoles("Admin", "Employee", "Manager"), getUsersByDepartment);
-router.get("/:id", authenticate, authorizeRoles("Admin", "Manager", "Employee"), getUser);
-router.put("/:id", authenticate, authorizeRoles("Admin", "Manager"), updateUser);
-router.delete("/:id", authenticate, authorizeRoles("Admin"), deleteUser);
+router.use(authenticate);
+router.get("/", getUsers);
+router.get("/me", getCurrentUser);
+router.get("/department", getUsersByDepartment);
+router.get("/:id", getUser);
+router.post("/", createUser);
+router.put("/:id", updateUser);
+router.delete("/:id", deleteUser);
 
 export default router;

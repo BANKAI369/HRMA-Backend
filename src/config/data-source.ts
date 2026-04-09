@@ -1,22 +1,18 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import dotenv from "dotenv";
-import { User } from "../entities/User";
-import { Role } from "../entities/role";
-import { Permission } from "../entities/permission";
 import { Department } from "../entities/Department";
-
-dotenv.config();
+import { Permission } from "../entities/permission";
+import { Role } from "../entities/role";
+import { User } from "../entities/User";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
-  username: process.env.DB_USER || process.env.DB_USERNAME,
-  password: process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || process.env.DB_NAME,
-  synchronize: false,
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT || 5432),
+  username: process.env.DB_USER || "postgres",
+  password: process.env.DB_PASSWORD || "Bankai@123",
+  database: process.env.DB_NAME || "hrma",
+  synchronize: (process.env.DB_SYNCHRONIZE || "true").toLowerCase() === "true",
   logging: false,
-  entities: ["src/entities/*.ts"],
-  migrations: ["src/migrations/*.ts"],
+  entities: [User, Role, Permission, Department],
 });

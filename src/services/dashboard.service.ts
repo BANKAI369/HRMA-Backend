@@ -10,9 +10,11 @@ type DashboardUserScope = {
 };
 
 export class DashboardService {
-  async getMetrics(role: string, userId: string, userEmail?: string) {
+  async getMetrics(role: string, userIdentifier: string, userEmail?: string) {
     const isAdmin = role.toLowerCase() === "admin";
-    const scope = isAdmin ? {} : await this.resolveUserScope(userId, userEmail);
+    const scope = isAdmin
+      ? {}
+      : await this.resolveUserScope(userIdentifier, userEmail);
 
     const topDepartmentsQuery = departmentRepo
       .createQueryBuilder("department")
@@ -103,22 +105,28 @@ export class DashboardService {
   }
 
   private async resolveUserScope(
-    userId: string,
+    userIdentifier: string,
     userEmail?: string
   ): Promise<DashboardUserScope> {
     const currentUserQuery = userRepo
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.department", "department");
 
-    if (userId && userEmail) {
+    if (userIdentifier) {
       currentUserQuery
-        .where("user.id = :userId", { userId })
-        .orWhere("user.email = :userEmail", { userEmail });
-    } else if (userId) {
-      currentUserQuery.where("user.id = :userId", { userId });
-    } else if (userEmail) {
-      currentUserQuery.where("user.email = :userEmail", { userEmail });
-    } else {
+        .where("user.id = :userIdentifier", { userIdentifier })
+        .orWhere("user.username = :userIdentifier", { userIdentifier });
+    }
+
+    if (userEmail) {
+      if (userIdentifier) {
+        currentUserQuery.orWhere("user.email = :userEmail", { userEmail });
+      } else {
+        currentUserQuery.where("user.email = :userEmail", { userEmail });
+      }
+    }
+
+    if (!userIdentifier && !userEmail) {
       throw new Error("User identifier is required");
     }
 

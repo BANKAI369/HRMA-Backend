@@ -1,7 +1,6 @@
-// src/entities/base.entity.ts
 import {
-  PrimaryGeneratedColumn,
   CreateDateColumn,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
 
@@ -9,9 +8,9 @@ export abstract class BaseEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @CreateDateColumn({ type: "timestamptz" })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: "timestamptz" })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

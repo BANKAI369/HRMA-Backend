@@ -14,30 +14,27 @@ export class User extends BaseEntity {
   @Column()
   password: string;
 
-  @Column({ default: true })
-  isActive: boolean;
-
   @Column({ default: false })
   mustChangePassword: boolean;
 
   @Column({ type: "varchar", nullable: true })
   resetToken: string | null;
 
-  @Column({ type: "timestamp", nullable: true })
-  resetTokenExpiry?: Date;
+  @Column({ default: true })
+  isActive: boolean;
 
   @ManyToOne(() => Department, (department) => department.employees, {
     nullable: true,
   })
   department: Department | null;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   departmentId: string | null;
 
   @ManyToOne(() => Role, (role) => role.users, { nullable: true })
   @JoinColumn({ name: "roleId" })
   role: Role | null;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   roleId: string | null;
 }

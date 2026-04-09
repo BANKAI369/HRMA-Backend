@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { DepartmentService } from "../services/department.service";
+import { sendValidationError } from "../utils/response";
 
 
 const departmentService = new DepartmentService();
@@ -31,10 +32,7 @@ export async function createDepartment(req: Request, res: Response) {
   try {
     const parsed = createDepartmentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, parsed.error);
     }
     const { name } = parsed.data;
     const department = await departmentService.createDepartment(name);
@@ -48,10 +46,7 @@ export async function assignManager(req: Request, res: Response) {
   try {
     const parsed = assignManagerSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, parsed.error);
     }
     const { departmentId, userId } = parsed.data;
     const result = await departmentService.assignManager(
@@ -68,10 +63,7 @@ export async function assignUserToDepartment(req: Request, res: Response) {
   try {
     const parsed = assignUserSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, parsed.error);
     }
     const { userId, departmentId } = parsed.data;
 
@@ -99,10 +91,7 @@ export async function getDepartmentById(req: Request, res: Response) {
     try {
         const parsed = idParamSchema.safeParse(req.params);
         if (!parsed.success) {
-          return res.status(400).json({
-            message: "Invalid request",
-            errors: parsed.error.flatten().fieldErrors,
-          });
+          return sendValidationError(res, parsed.error);
         }
         const { id } = parsed.data;
         const department = await departmentService.getDepartmentById(id);
@@ -116,17 +105,11 @@ export async function updateDepartment(req: Request, res: Response) {
   try {
     const paramsParsed = idParamSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: paramsParsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, paramsParsed.error);
     }
     const bodyParsed = updateDepartmentSchema.safeParse(req.body);
     if (!bodyParsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: bodyParsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, bodyParsed.error);
     }
     const { id } = paramsParsed.data;
     const { name } = bodyParsed.data;
@@ -144,10 +127,7 @@ export async function deleteDepartment(req: Request, res: Response){
     try {
         const parsed = idParamSchema.safeParse(req.params);
         if (!parsed.success) {
-          return res.status(400).json({
-            message: "Invalid request",
-            errors: parsed.error.flatten().fieldErrors,
-          });
+          return sendValidationError(res, parsed.error);
         }
         const { id } = parsed.data;
         const result = await departmentService.deleteDepartment(id);

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../middleware/auth.middleware";
 import * as service from "../services/roles.service";
+import { sendValidationError } from "../utils/response";
 
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required"),
@@ -15,10 +16,7 @@ export async function createRole(req: AuthRequest, res: Response) {
   try {
     const parsed = createRoleSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, parsed.error);
     }
     const role = await service.createRole(parsed.data.name);
     res.status(201).json(role);
@@ -40,10 +38,7 @@ export async function getRole(req: AuthRequest, res: Response) {
   try {
     const parsed = idParamSchema.safeParse(req.params);
     if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      return sendValidationError(res, parsed.error);
     }
     const role = await service.findRoleById(parsed.data.id);
     res.json(role);
@@ -56,10 +51,7 @@ export async function deleteRole(req: AuthRequest, res: Response){
     try{ 
         const parsed = idParamSchema.safeParse(req.params);
         if (!parsed.success) {
-          return res.status(400).json({
-            message: "Invalid request",
-            errors: parsed.error.flatten().fieldErrors,
-          });
+          return sendValidationError(res, parsed.error);
         }
         const result = await service.deleteRole(parsed.data.id);
         res.json(result);

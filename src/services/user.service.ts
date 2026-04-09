@@ -1,40 +1,67 @@
+import bcrypt from "bcryptjs";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../entities/User";
 import { Role } from "../entities/role";
-import bcrypt from "bcrypt";
 import { Roles } from "../utils/roles.enum";
 
 const userRepo = AppDataSource.getRepository(User);
 const roleRepo = AppDataSource.getRepository(Role);
 
+type CreateUserInput = Partial<User> & {
+  password?: string;
+  roleName?: Roles;
+};
+
+type UpdateUserInput = Partial<User> & {
+  password?: string;
+};
+
+const buildTemporaryPassword = () =>
+  `HRMA${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`;
+
 export class UserService {
-  async create(data: Partial<User>) {
+  async create(data: CreateUserInput) {
+    const normalizedUsername = data.username?.trim();
+    const normalizedEmail = data.email?.trim().toLowerCase();
+
     const existing = await userRepo.findOne({
-      where: [{ email: data.email }, { username: data.username }],
+      where: [{ email: normalizedEmail }, { username: normalizedUsername }],
     });
 
     if (existing) {
       throw new Error("User already exists");
     }
 
-    if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
-    }
+    const requestedRole = data.roleName ?? Roles.Employee;
 
-    const employeeRole = await roleRepo.findOne({
-      where: { name: Roles.Employee },
+    let roleEntity = await roleRepo.findOne({
+      where: { name: requestedRole },
     });
 
-    if (!employeeRole) {
-      throw new Error("Default role not found. Seed roles first.");
+    if (!roleEntity) {
+      roleEntity = await roleRepo.save(
+        roleRepo.create({
+          name: requestedRole,
+        })
+      );
     }
 
+    const temporaryPassword = data.password?.trim() || buildTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const { password: _password, roleName: _roleName, ...persistedData } = data;
     const user = userRepo.create({
-      ...data,
-      role: employeeRole,
+      ...persistedData,
+      username: normalizedUsername,
+      email: normalizedEmail,
+      password: hashedPassword,
+      mustChangePassword: !data.password,
+      role: roleEntity,
     });
 
-    return userRepo.save(user);
+    return {
+      user: await userRepo.save(user),
+      temporaryPassword: data.password ? null : temporaryPassword,
+    };
   }
 
   async findAll() {
@@ -56,20 +83,24 @@ export class UserService {
     return user;
   }
 
-  async update(id: string, data: Partial<User>) {
+  async update(id: string, data: UpdateUserInput) {
     const user = await this.findOne(id);
 
-    if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
+    const { password, ...persistedData } = data;
+    userRepo.merge(user, persistedData);
+    if (typeof password === "string" && password.trim()) {
+      user.password = await bcrypt.hash(password, 10);
+      user.mustChangePassword = false;
     }
-
-    userRepo.merge(user, data);
     return userRepo.save(user);
   }
 
   async remove(id: string) {
     const user = await this.findOne(id);
-    await userRepo.remove(user);
+    user.isActive = false;
+    user.role = null;
+    user.department = null;
+    await userRepo.save(user);
     return { message: "User deleted successfully" };
   }
 }
