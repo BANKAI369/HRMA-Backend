@@ -1,6 +1,8 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { z } from "zod";
 import { DepartmentService } from "../services/department.service";
+import { AuthRequest } from "../middleware/auth.middleware";
+import { resolveActorUserId } from "../utils/auth-user.utils";
 
 
 const departmentService = new DepartmentService();
@@ -27,7 +29,7 @@ const updateDepartmentSchema = z.object({
   name: z.string().trim().min(1, "Department name is required"),
 });
 
-export async function createDepartment(req: Request, res: Response) {
+export async function createDepartment(req: AuthRequest, res: Response) {
   try {
     const parsed = createDepartmentSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -44,7 +46,7 @@ export async function createDepartment(req: Request, res: Response) {
   }
 }
 
-export async function assignManager(req: Request, res: Response) {
+export async function assignManager(req: AuthRequest, res: Response) {
   try {
     const parsed = assignManagerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -54,9 +56,13 @@ export async function assignManager(req: Request, res: Response) {
       });
     }
     const { departmentId, userId } = parsed.data;
+    const actorUserId = await resolveActorUserId(req);
     const result = await departmentService.assignManager(
       departmentId,
-      userId
+      userId,
+      {
+        actorUserId,
+      }
     );
     res.status(200).json(result);
   } catch (error: any) {
@@ -64,7 +70,7 @@ export async function assignManager(req: Request, res: Response) {
   }
 }
 
-export async function assignUserToDepartment(req: Request, res: Response) {
+export async function assignUserToDepartment(req: AuthRequest, res: Response) {
   try {
     const parsed = assignUserSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -74,10 +80,14 @@ export async function assignUserToDepartment(req: Request, res: Response) {
       });
     }
     const { userId, departmentId } = parsed.data;
+    const actorUserId = await resolveActorUserId(req);
 
     const result = await departmentService.assignUserToDepartment(
       userId,
-      departmentId
+      departmentId,
+      {
+        actorUserId,
+      }
     );
 
     res.status(200).json(result);
@@ -86,7 +96,7 @@ export async function assignUserToDepartment(req: Request, res: Response) {
   }
 }
 
-export async function getDepartments(req: Request, res: Response) {
+export async function getDepartments(req: AuthRequest, res: Response) {
   try {
     const departments = await departmentService.listDepartments();
     res.status(200).json(departments);
@@ -95,7 +105,7 @@ export async function getDepartments(req: Request, res: Response) {
   }
 }
 //Get Single
-export async function getDepartmentById(req: Request, res: Response) {
+export async function getDepartmentById(req: AuthRequest, res: Response) {
     try {
         const parsed = idParamSchema.safeParse(req.params);
         if (!parsed.success) {
@@ -112,7 +122,7 @@ export async function getDepartmentById(req: Request, res: Response) {
     }
 }
 //update
-export async function updateDepartment(req: Request, res: Response) {
+export async function updateDepartment(req: AuthRequest, res: Response) {
   try {
     const paramsParsed = idParamSchema.safeParse(req.params);
     if (!paramsParsed.success) {
@@ -130,8 +140,11 @@ export async function updateDepartment(req: Request, res: Response) {
     }
     const { id } = paramsParsed.data;
     const { name } = bodyParsed.data;
+    const actorUserId = await resolveActorUserId(req);
 
-    const department = await departmentService.updateDepartment(id, name);
+    const department = await departmentService.updateDepartment(id, name, {
+      actorUserId,
+    });
 
     res.status(200).json(department);
   } catch (error: any) {
@@ -140,7 +153,7 @@ export async function updateDepartment(req: Request, res: Response) {
 }
 
 //Delete
-export async function deleteDepartment(req: Request, res: Response){
+export async function deleteDepartment(req: AuthRequest, res: Response){
     try {
         const parsed = idParamSchema.safeParse(req.params);
         if (!parsed.success) {

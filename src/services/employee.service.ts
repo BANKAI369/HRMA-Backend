@@ -9,6 +9,7 @@ import { Location } from "../entities/Location";
 import { NoticePeriod } from "../entities/NoticePeriod";
 import { Role } from "../entities/role";
 import { User } from "../entities/User";
+import { auditLogService, buildAuditDiff } from "./audit-log.service";
 import { Roles } from "../utils/roles.enum";
 import { normalizeRole } from "../utils/role.utils";
 
@@ -22,6 +23,10 @@ const noticePeriodRepository = AppDataSource.getRepository(NoticePeriod);
 const groupRepository = AppDataSource.getRepository(EmployeeGroup);
 
 type NullableInput = string | null | undefined;
+
+type AuditOptions = {
+  actorUserId?: string | null;
+};
 
 export type CreateEmployeeInput = {
   username: string;
@@ -107,9 +112,92 @@ const serializeManager = (manager: User | null) =>
       }
     : null;
 
+const serializeLocation = (location: Location | null) =>
+  location
+    ? {
+        id: location.id,
+        name: location.name,
+        countryCode: location.countryCode,
+      }
+    : null;
+
+const serializeJobTitle = (jobTitle: JobTitle | null) =>
+  jobTitle
+    ? {
+        id: jobTitle.id,
+        name: jobTitle.name,
+      }
+    : null;
+
+const serializeNoticePeriod = (noticePeriod: NoticePeriod | null) =>
+  noticePeriod
+    ? {
+        id: noticePeriod.id,
+        name: noticePeriod.name,
+        days: noticePeriod.days,
+      }
+    : null;
+
+const serializeGroup = (group: EmployeeGroup | null) =>
+  group
+    ? {
+        id: group.id,
+        name: group.name,
+        groupTypeId: group.groupTypeId,
+      }
+    : null;
+
 const isSoftDeletedUser = (user: User) => !user.isActive && !user.role;
 
 export class EmployeeService {
+  private buildUserCreationAuditSnapshot(user: User, profile: EmployeeProfile | null) {
+    return {
+      username: user.username,
+      email: user.email,
+      isActive: user.isActive,
+      role: serializeRole(user.role ?? null),
+      department: serializeDepartment(user.department ?? null),
+      firstName: profile?.firstName ?? null,
+      lastName: profile?.lastName ?? null,
+      employeeCode: profile?.employeeCode ?? null,
+      location: serializeLocation(profile?.location ?? null),
+      jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
+      manager: serializeManager(profile?.manager ?? null),
+      noticePeriod: serializeNoticePeriod(profile?.noticePeriod ?? null),
+      group: serializeGroup(profile?.group ?? null),
+    };
+  }
+
+  private buildProfileAuditSnapshot(user: User, profile: EmployeeProfile | null) {
+    return {
+      firstName: profile?.firstName ?? null,
+      lastName: profile?.lastName ?? null,
+      phone: profile?.phone ?? null,
+      dateOfBirth: profile?.dateOfBirth ?? null,
+      gender: profile?.gender ?? null,
+      employeeCode: profile?.employeeCode ?? null,
+      dateOfJoining: profile?.dateOfJoining ?? null,
+      department: serializeDepartment(user.department ?? null),
+      location: serializeLocation(profile?.location ?? null),
+      jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
+      manager: serializeManager(profile?.manager ?? null),
+      noticePeriod: serializeNoticePeriod(profile?.noticePeriod ?? null),
+      group: serializeGroup(profile?.group ?? null),
+    };
+  }
+
+  private buildRoleAuditSnapshot(user: User) {
+    return {
+      role: serializeRole(user.role ?? null),
+    };
+  }
+
+  private buildActivationAuditSnapshot(user: User) {
+    return {
+      isActive: user.isActive,
+    };
+  }
+
   private buildEmployeeResponse(user: User, profile: EmployeeProfile | null) {
     const firstName = profile?.firstName ?? null;
     const lastName = profile?.lastName ?? null;
@@ -442,7 +530,7 @@ export class EmployeeService {
     return this.buildEmployeeResponse(user, profile);
   }
 
-  async create(data: CreateEmployeeInput) {
+  async create(data: CreateEmployeeInput, options: AuditOptions = {}) {
     const normalizedUsername = data.username.trim();
     const normalizedEmail = data.email.trim().toLowerCase();
     const requestedRole = data.roleName ?? Roles.Employee;
@@ -511,6 +599,16 @@ export class EmployeeService {
       });
 
       await managerTx.save(EmployeeProfile, profile);
+      await auditLogService.log(
+        {
+          actorUserId: options.actorUserId ?? null,
+          action: "USER_CREATED",
+          entityType: "user",
+          entityId: savedUser.id,
+          newValue: this.buildUserCreationAuditSnapshot(savedUser, profile),
+        },
+        managerTx
+      );
       return savedUser.id;
     });
 
@@ -522,10 +620,12 @@ export class EmployeeService {
 
   async updatePersonalDetails(
     userId: string,
-    data: UpdateEmployeePersonalDetailsInput
+    data: UpdateEmployeePersonalDetailsInput,
+    options: AuditOptions = {}
   ) {
-    await this.loadUser(userId);
+    const user = await this.loadUser(userId);
     const profile = await this.ensureProfile(userId);
+    const previousProfileSnapshot = this.buildProfileAuditSnapshot(user, profile);
 
     if (data.firstName !== undefined) {
       profile.firstName = normalizeOptionalValue(data.firstName) ?? null;
@@ -547,13 +647,43 @@ export class EmployeeService {
       profile.gender = normalizeOptionalValue(data.gender) ?? null;
     }
 
-    await profileRepository.save(profile);
+    const nextProfileSnapshot = this.buildProfileAuditSnapshot(user, profile);
+    const profileAuditDiff = buildAuditDiff(
+      previousProfileSnapshot,
+      nextProfileSnapshot
+    );
+
+    await AppDataSource.transaction(async (managerTx) => {
+      await managerTx.save(EmployeeProfile, profile);
+
+      if (profileAuditDiff.hasChanges) {
+        await auditLogService.log(
+          {
+            actorUserId: options.actorUserId ?? null,
+            action: "EMPLOYEE_PROFILE_UPDATED",
+            entityType: "employee_profile",
+            entityId: userId,
+            oldValue: profileAuditDiff.oldValue,
+            newValue: profileAuditDiff.newValue,
+          },
+          managerTx
+        );
+      }
+    });
+
     return this.findOne(userId);
   }
 
-  async updateJobDetails(userId: string, data: UpdateEmployeeJobDetailsInput) {
+  async updateJobDetails(
+    userId: string,
+    data: UpdateEmployeeJobDetailsInput,
+    options: AuditOptions = {}
+  ) {
     const user = await this.loadUser(userId);
     const profile = await this.ensureProfile(userId);
+    const previousProfileSnapshot = this.buildProfileAuditSnapshot(user, profile);
+    const previousRoleSnapshot = this.buildRoleAuditSnapshot(user);
+    const previousActivationSnapshot = this.buildActivationAuditSnapshot(user);
 
     const department = await this.resolveDepartment(data.departmentId);
     const role = await this.resolveRole(data.role);
@@ -612,9 +742,68 @@ export class EmployeeService {
       user.isActive = data.isActive;
     }
 
+    const profileAuditDiff = buildAuditDiff(
+      previousProfileSnapshot,
+      this.buildProfileAuditSnapshot(user, profile)
+    );
+    const roleAuditDiff = buildAuditDiff(
+      previousRoleSnapshot,
+      this.buildRoleAuditSnapshot(user)
+    );
+    const activationAuditDiff = buildAuditDiff(
+      previousActivationSnapshot,
+      this.buildActivationAuditSnapshot(user)
+    );
+
     await AppDataSource.transaction(async (managerTx) => {
       await managerTx.save(User, user);
       await managerTx.save(EmployeeProfile, profile);
+
+      if (profileAuditDiff.hasChanges) {
+        await auditLogService.log(
+          {
+            actorUserId: options.actorUserId ?? null,
+            action: "EMPLOYEE_PROFILE_UPDATED",
+            entityType: "employee_profile",
+            entityId: userId,
+            oldValue: profileAuditDiff.oldValue,
+            newValue: profileAuditDiff.newValue,
+          },
+          managerTx
+        );
+      }
+
+      if (roleAuditDiff.hasChanges) {
+        await auditLogService.log(
+          {
+            actorUserId: options.actorUserId ?? null,
+            action: "USER_ROLE_CHANGED",
+            entityType: "user",
+            entityId: userId,
+            oldValue: roleAuditDiff.oldValue,
+            newValue: roleAuditDiff.newValue,
+          },
+          managerTx
+        );
+      }
+
+      if (
+        previousActivationSnapshot.isActive &&
+        activationAuditDiff.hasChanges &&
+        user.isActive === false
+      ) {
+        await auditLogService.log(
+          {
+            actorUserId: options.actorUserId ?? null,
+            action: "EMPLOYEE_DEACTIVATED",
+            entityType: "user",
+            entityId: userId,
+            oldValue: activationAuditDiff.oldValue,
+            newValue: activationAuditDiff.newValue,
+          },
+          managerTx
+        );
+      }
     });
 
     return this.findOne(userId);

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { EmployeeService } from "../services/employee.service";
+import { resolveActorUserId } from "../utils/auth-user.utils";
 import { Roles } from "../utils/roles.enum";
 import { resolveRequestRole } from "../utils/role.utils";
 
@@ -123,6 +124,7 @@ export async function createEmployee(req: AuthRequest, res: Response) {
       });
     }
 
+    const actorUserId = await resolveActorUserId(req);
     const result = await service.create({
       username: parsed.data.username,
       email: parsed.data.email,
@@ -141,6 +143,8 @@ export async function createEmployee(req: AuthRequest, res: Response) {
       managerUserId: parsed.data.managerUserId,
       noticePeriodId: parsed.data.noticePeriodId,
       groupId: parsed.data.groupId,
+    }, {
+      actorUserId,
     });
 
     res.status(201).json({
@@ -185,9 +189,13 @@ export async function updateEmployeePersonalDetails(
       return res.status(403).json({ message: "Forbidden" });
     }
 
+    const actorUserId = await resolveActorUserId(req);
     const employee = await service.updatePersonalDetails(
       paramsParsed.data.id,
-      bodyParsed.data
+      bodyParsed.data,
+      {
+        actorUserId,
+      }
     );
 
     res.json(employee);
@@ -226,9 +234,13 @@ export async function updateEmployeeJobDetails(
       return res.status(403).json({ message: "Forbidden" });
     }
 
+    const actorUserId = await resolveActorUserId(req);
     const employee = await service.updateJobDetails(
       paramsParsed.data.id,
-      bodyParsed.data
+      bodyParsed.data,
+      {
+        actorUserId,
+      }
     );
 
     res.json(employee);
