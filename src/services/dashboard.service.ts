@@ -1,10 +1,12 @@
 import { AppDataSource } from "../config/data-source";
 import { Department } from "../entities/Department";
+import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { User } from "../entities/User";
 import { Roles } from "../utils/roles.enum";
 
 const userRepo = AppDataSource.getRepository(User);
 const departmentRepo = AppDataSource.getRepository(Department);
+const profileRepo = AppDataSource.getRepository(EmployeeProfile);
 
 type DashboardUserScope = {
   departmentId?: string;
@@ -58,6 +60,8 @@ export class DashboardService {
       totalUsers,
       activeUsers,
       inactiveUsers,
+      jobTitleCount,
+      locationCount,
       recentUsers,
       departmentCount,
       topDepartments,
@@ -81,6 +85,16 @@ export class DashboardService {
       this.buildScopedUserQuery(scope)
         .andWhere("user.isActive = :isActive", { isActive: false })
         .getCount(),
+
+      this.buildScopedProfileQuery(scope)
+        .select("COUNT(DISTINCT profile.jobTitleId)", "count")
+        .andWhere("profile.jobTitleId IS NOT NULL")
+        .getRawOne<{ count: string }>(),
+
+      this.buildScopedProfileQuery(scope)
+        .select("COUNT(DISTINCT profile.locationId)", "count")
+        .andWhere("profile.locationId IS NOT NULL")
+        .getRawOne<{ count: string }>(),
 
       this.buildScopedUserQuery(scope)
         .leftJoinAndSelect("user.role", "role")
@@ -109,6 +123,8 @@ export class DashboardService {
       totalUsers,
       activeUsers,
       inactiveUsers,
+      jobTitleCount: Number(jobTitleCount?.count || 0),
+      locationCount: Number(locationCount?.count || 0),
       currentDepartment: scope.departmentName || null,
       recentUsers,
       topDepartments: topDepartments.map((department) => ({
@@ -177,5 +193,25 @@ export class DashboardService {
     }
 
     return null;
+  }
+
+  private buildScopedProfileQuery(scope: DashboardUserScope) {
+    const query = profileRepo
+      .createQueryBuilder("profile")
+      .innerJoin("profile.user", "user")
+      .where(
+        "NOT (user.isActive = :deletedInactive AND user.roleId IS NULL)",
+        {
+          deletedInactive: false,
+        }
+      );
+
+    if (scope.departmentId) {
+      query.andWhere("user.departmentId = :departmentId", {
+        departmentId: scope.departmentId,
+      });
+    }
+
+    return query;
   }
 }
