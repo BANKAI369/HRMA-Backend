@@ -15,10 +15,10 @@ import { User } from "./User";
 @Entity("employee_profiles")
 export class EmployeeProfile extends BaseEntity {
   @OneToOne(() => User, { nullable: false, onDelete: "CASCADE" })
-  @JoinColumn({ name: "userId" })
+  @JoinColumn({ name: "user_id" })
   user: User;
 
-  @Column({ type: "uuid", unique: true })
+  @Column({ name: "user_id", type: "uuid", unique: true })
   userId: string;
 
   @Column({ type: "varchar", nullable: true })
@@ -43,17 +43,17 @@ export class EmployeeProfile extends BaseEntity {
   dateOfJoining: string | null;
 
   @ManyToOne(() => Location, { nullable: true, onDelete: "SET NULL" })
-  @JoinColumn({ name: "locationId" })
+  @JoinColumn({ name: "location_id" })
   location: Location | null;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ name: "location_id", type: "varchar", nullable: true })
   locationId: string | null;
 
   @ManyToOne(() => JobTitle, { nullable: true, onDelete: "SET NULL" })
-  @JoinColumn({ name: "jobTitleId" })
+  @JoinColumn({ name: "job_title_id" })
   jobTitle: JobTitle | null;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ name: "job_title_id", type: "varchar", nullable: true })
   jobTitleId: string | null;
 
   @ManyToOne(() => NoticePeriod, { nullable: true, onDelete: "SET NULL" })

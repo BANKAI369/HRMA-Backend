@@ -4,6 +4,7 @@ import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { JobTitle } from "../entities/JobTitle";
 import { User } from "../entities/User";
 import { Role } from "../entities/role";
+import { auditLogService } from "./audit-log.service";
 import { Roles } from "../utils/roles.enum";
 
 const userRepo = AppDataSource.getRepository(User);
@@ -23,6 +24,10 @@ type CreateUserInput = {
   departmentId?: string | null;
   jobTitleId?: string | null;
   isActive?: boolean;
+};
+
+type AuditOptions = {
+  actorUserId?: string | null;
 };
 
 type UpdateUserInput = Partial<User> & {
@@ -104,7 +109,7 @@ const resolveJobTitle = async (jobTitleId: NullableId) => {
 };
 
 export class UserService {
-  async create(data: CreateUserInput) {
+  async create(data: CreateUserInput, options: AuditOptions = {}) {
     const normalizedUsername = data.username.trim();
     const normalizedEmail = data.email.trim().toLowerCase();
 
@@ -144,6 +149,38 @@ export class UserService {
       });
 
       await manager.save(EmployeeProfile, profile);
+      await auditLogService.log(
+        {
+          actorUserId: options.actorUserId ?? null,
+          action: "USER_CREATED",
+          entityType: "user",
+          entityId: savedUser.id,
+          newValue: {
+            username: savedUser.username,
+            email: savedUser.email,
+            isActive: savedUser.isActive,
+            role: roleEntity
+              ? {
+                  id: roleEntity.id,
+                  name: roleEntity.name,
+                }
+              : null,
+            department: department
+              ? {
+                  id: department.id,
+                  name: department.name,
+                }
+              : null,
+            jobTitle: jobTitle
+              ? {
+                  id: jobTitle.id,
+                  name: jobTitle.name,
+                }
+              : null,
+          },
+        },
+        manager
+      );
 
       return savedUser.id;
     });

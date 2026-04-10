@@ -7,10 +7,10 @@ import { User } from "./User";
 @Entity("exit_requests")
 export class ExitRequest extends BaseEntity {
   @ManyToOne(() => User, { nullable: false, onDelete: "CASCADE" })
-  @JoinColumn({ name: "employeeUserId" })
+  @JoinColumn({ name: "user_id" })
   employeeUser: User;
 
-  @Column({ type: "uuid" })
+  @Column({ name: "user_id", type: "uuid" })
   employeeUserId: string;
 
   @ManyToOne(() => User, { nullable: false, onDelete: "NO ACTION" })
@@ -21,10 +21,10 @@ export class ExitRequest extends BaseEntity {
   requestedByUserId: string;
 
   @ManyToOne(() => ExitReason, { nullable: false, onDelete: "NO ACTION" })
-  @JoinColumn({ name: "exitReasonId" })
+  @JoinColumn({ name: "exit_reason_id" })
   exitReason: ExitReason;
 
-  @Column({ type: "varchar" })
+  @Column({ name: "exit_reason_id", type: "varchar" })
   exitReasonId: string;
 
   @ManyToOne(() => NoticePeriod, { nullable: true, onDelete: "SET NULL" })

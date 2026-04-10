@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { In } from "typeorm";
 import { z } from "zod";
 import { UserService } from "../services/user.service";
@@ -17,6 +17,11 @@ import {
   updateCognitoUserProfile,
   setCognitoUserRole,
 } from "../services/cognito.service";
+import { auditLogService, buildAuditDiff } from "../services/audit-log.service";
+import {
+  resolveActorUserId,
+  resolveAuthenticatedUser,
+} from "../utils/auth-user.utils";
 import { Roles } from "../utils/roles.enum";
 import { normalizeRole, resolveRequestRole } from "../utils/role.utils";
 
@@ -233,25 +238,27 @@ const isSoftDeletedUser = (
       }
 ) => !user.isActive && !user.role;
 
-const resolveCurrentUser = async (req: AuthRequest) => {
-  const userRepo = AppDataSource.getRepository(User);
-  const currentUserSub = req.user?.sub;
-  const currentUserId = req.user?.id;
-  const currentUserEmail = req.user?.email || null;
+const buildRoleAuditSnapshot = (user: User) => ({
+  role: serializeRole(user.role ?? null),
+});
 
-  if (!currentUserSub && !currentUserId && !currentUserEmail) {
-    return null;
-  }
+const buildActivationAuditSnapshot = (user: User) => ({
+  isActive: user.isActive,
+});
 
-  return userRepo.findOne({
-    where: [
-      currentUserSub ? { cognitoSub: currentUserSub } : undefined,
-      currentUserEmail ? { email: currentUserEmail } : undefined,
-      currentUserId ? { id: currentUserId } : undefined,
-    ].filter(Boolean) as Array<{ cognitoSub?: string; id?: string; email?: string }>,
-    relations: ["role", "department"],
-  });
-};
+const buildManagedUserAuditSnapshot = (
+  user: User,
+  profile: EmployeeProfile | null
+) => ({
+  department: serializeDepartment(user.department ?? null),
+  jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
+});
+
+const buildUserDeactivationAuditSnapshot = (user: User) => ({
+  isActive: user.isActive,
+  role: serializeRole(user.role ?? null),
+  department: serializeDepartment(user.department ?? null),
+});
 
 export async function createUser(req: AuthRequest, res: Response) {
   try {
@@ -279,6 +286,7 @@ export async function createUser(req: AuthRequest, res: Response) {
     });
 
     const cognitoUser = await getCognitoUserIdentity(email);
+    const actorUserId = await resolveActorUserId(req);
 
     let user: User;
     try {
@@ -290,6 +298,8 @@ export async function createUser(req: AuthRequest, res: Response) {
         roleName: selectedRole,
         departmentId,
         jobTitleId,
+      }, {
+        actorUserId,
       });
     } catch (error) {
       await deleteCognitoUser(cognitoUser.cognitoUsername).catch(() => undefined);
@@ -312,7 +322,7 @@ export async function createUser(req: AuthRequest, res: Response) {
 }
 
 
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
     const parsed = idParamSchema.safeParse(req.params);
@@ -327,6 +337,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     const user = await userRepo.findOne({
       where,
+      relations: ["role", "department"],
     });
 
     if (!user && !cognitoUsernameFromId) {
@@ -346,6 +357,10 @@ export const deleteUser = async (req: Request, res: Response) => {
       }
     }
     if (user) {
+      const actorUserId = await resolveActorUserId(req);
+      const previousDeactivationSnapshot =
+        buildUserDeactivationAuditSnapshot(user);
+
       await AppDataSource.transaction(async (transactionManager) => {
         user.isActive = false;
         user.role = null;
@@ -353,6 +368,25 @@ export const deleteUser = async (req: Request, res: Response) => {
         user.department = null;
         user.departmentId = null;
         await transactionManager.save(User, user);
+
+        const deactivationAuditDiff = buildAuditDiff(
+          previousDeactivationSnapshot,
+          buildUserDeactivationAuditSnapshot(user)
+        );
+
+        if (previousDeactivationSnapshot.isActive && deactivationAuditDiff.hasChanges) {
+          await auditLogService.log(
+            {
+              actorUserId,
+              action: "EMPLOYEE_DEACTIVATED",
+              entityType: "user",
+              entityId: user.id,
+              oldValue: deactivationAuditDiff.oldValue,
+              newValue: deactivationAuditDiff.newValue,
+            },
+            transactionManager
+          );
+        }
       });
     }
 
@@ -428,7 +462,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
 
 export async function getCurrentUser(req: AuthRequest, res: Response) {
   try {
-    const currentUser = await resolveCurrentUser(req);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
 
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
@@ -449,7 +483,10 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
 export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const currentUser = await resolveCurrentUser(req);
+    const currentUser = await resolveAuthenticatedUser(req, [
+      "role",
+      "department",
+    ]);
     const requesterId = req.user?.id ?? null;
     const requesterEmail = req.user?.email || null;
 
@@ -595,6 +632,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
     const { username, email, role, isActive, departmentId, jobTitleId } =
       bodyParsed.data;
+    const actorUserId = await resolveActorUserId(req);
     const { user: existingUser, cognitoUsernameFromId } =
       await findUserByIdOrCognitoIdentity(paramsParsed.data.id, userRepo);
 
@@ -609,6 +647,8 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         email: cognitoUser.email || cognitoUsernameFromId,
         cognitoUsername: cognitoUser.cognitoUsername,
         cognitoSub: cognitoUser.cognitoSub,
+      }, {
+        actorUserId,
       });
 
       user = await userRepo.findOne({
@@ -630,7 +670,10 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     }
 
     if (isManagerRequester) {
-      const currentUser = await resolveCurrentUser(req);
+      const currentUser = await resolveAuthenticatedUser(req, [
+        "role",
+        "department",
+      ]);
       const requestedFields = Object.entries(bodyParsed.data).filter(
         ([, value]) => value !== undefined
       );
@@ -659,6 +702,12 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     let nextCognitoRole: Roles | null = null;
     let cognitoIdentifier = user.cognitoUsername?.trim() || null;
     const profile = await ensureProfile(user.id);
+    const previousRoleSnapshot = buildRoleAuditSnapshot(user);
+    const previousActivationSnapshot = buildActivationAuditSnapshot(user);
+    const previousManagedUserSnapshot = buildManagedUserAuditSnapshot(
+      user,
+      profile
+    );
 
     if (!cognitoIdentifier && user.email) {
       try {
@@ -826,10 +875,69 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     }
 
     try {
+      const roleAuditDiff = buildAuditDiff(
+        previousRoleSnapshot,
+        buildRoleAuditSnapshot(user)
+      );
+      const activationAuditDiff = buildAuditDiff(
+        previousActivationSnapshot,
+        buildActivationAuditSnapshot(user)
+      );
+      const managedUserAuditDiff = buildAuditDiff(
+        previousManagedUserSnapshot,
+        buildManagedUserAuditSnapshot(user, profile)
+      );
+
       await AppDataSource.transaction(async (transactionManager) => {
         await transactionManager.save(User, user);
         if (jobTitleId !== undefined) {
           await transactionManager.save(EmployeeProfile, profile);
+        }
+
+        if (roleAuditDiff.hasChanges) {
+          await auditLogService.log(
+            {
+              actorUserId,
+              action: "USER_ROLE_CHANGED",
+              entityType: "user",
+              entityId: user.id,
+              oldValue: roleAuditDiff.oldValue,
+              newValue: roleAuditDiff.newValue,
+            },
+            transactionManager
+          );
+        }
+
+        if (
+          previousActivationSnapshot.isActive &&
+          activationAuditDiff.hasChanges &&
+          user.isActive === false
+        ) {
+          await auditLogService.log(
+            {
+              actorUserId,
+              action: "EMPLOYEE_DEACTIVATED",
+              entityType: "user",
+              entityId: user.id,
+              oldValue: activationAuditDiff.oldValue,
+              newValue: activationAuditDiff.newValue,
+            },
+            transactionManager
+          );
+        }
+
+        if (managedUserAuditDiff.hasChanges) {
+          await auditLogService.log(
+            {
+              actorUserId,
+              action: "EMPLOYEE_PROFILE_UPDATED",
+              entityType: "employee_profile",
+              entityId: user.id,
+              oldValue: managedUserAuditDiff.oldValue,
+              newValue: managedUserAuditDiff.newValue,
+            },
+            transactionManager
+          );
         }
       });
     } catch (error) {
