@@ -5,6 +5,7 @@ import { DataSource } from "typeorm";
 import { AuditLog } from "../entities/AuditLog";
 import { Currency } from "../entities/Currency";
 import { Department } from "../entities/Department";
+import { DocumentType } from "../entities/DocumentTypes";
 import { EmployeeGroup } from "../entities/EmployeeGroup";
 import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { ExitRequest } from "../entities/ExitRequest";
@@ -33,6 +34,7 @@ export const AppDataSource = new DataSource({
     Role,
     Permission,
     Department,
+    DocumentType,
     AuditLog,
     Location,
     JobTitle,
