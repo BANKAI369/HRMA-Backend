@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import authRoutes from "./routes/auth.routes";
+import documentRoutes from "./routes/document.routes";
 import employeeRoutes from "./routes/employee.routes";
 import userRoutes from "./routes/user.routes";
 import { errorHandler } from "./middleware/error.middleware";
@@ -17,8 +19,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/documents", documentRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/exit-requests", exitRequestRoutes);
 app.use("/api/users", userRoutes);
