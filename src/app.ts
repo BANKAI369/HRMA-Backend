@@ -9,14 +9,8 @@ import masterDataRoutes from "./routes/master-data.routes";
 import permissionRoutes from "./routes/permissions.routes";
 import roleRoutes from "./routes/roles.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import documentRoutes from "./routes/document.routes";
 import documentTypeRoutes from "./routes/document-type.routes";
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import exitRequestRoutes from "./routes/exit-request.routes";
 
 

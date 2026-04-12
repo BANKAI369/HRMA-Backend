@@ -11,6 +11,7 @@ router.post("/", uploadDocument.single("file"), documentController.uploadDocumen
 router.get("/", documentController.getAllDocuments);
 router.get("/my", documentController.getMyDocuments);
 router.get("/user/:userId", documentController.getDocumentsByUserId);
+router.get("/:id/download", documentController.downloadDocument);
 router.get("/:id", documentController.getDocumentById);
 router.patch("/:id/review", documentController.reviewDocument);
 router.delete("/:id", documentController.deleteDocument);

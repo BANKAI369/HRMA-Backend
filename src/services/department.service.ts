@@ -1,13 +1,7 @@
 import { AppDataSource } from "../config/data-source";
 import { Department } from "../entities/Department";
 import { User } from "../entities/User";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import { auditLogService, buildAuditDiff } from "./audit-log.service";
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import { Roles } from "../utils/roles.enum";
 
 const departmentRepo = AppDataSource.getRepository(Department);
@@ -18,10 +12,19 @@ type AuditOptions = {
 };
 
 export class DepartmentService {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   private buildDepartmentAuditSnapshot(department: Department) {
     return {
+      name: department.name,
+    };
+  }
+
+  private serializeDepartment(department: Department | null) {
+    if (!department) {
+      return null;
+    }
+
+    return {
+      id: department.id,
       name: department.name,
     };
   }
@@ -32,10 +35,6 @@ export class DepartmentService {
     };
   }
 
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
   private serializeManager(user: User | null) {
     if (!user) {
       return null;
@@ -59,23 +58,6 @@ export class DepartmentService {
     return user?.role?.name?.toLowerCase() === Roles.Manager.toLowerCase();
   }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  private serializeDepartment(department: Department | null) {
-    if (!department) {
-      return null;
-    }
-
-    return {
-      id: department.id,
-      name: department.name,
-    };
-  }
-
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
   private async ensureDepartmentManagerSlot(
     departmentId: string,
     currentUserId?: string
@@ -112,58 +94,32 @@ export class DepartmentService {
 
   async createDepartment(name: string) {
     const existing = await departmentRepo.findOne({ where: { name } });
-    if (existing) throw new Error("Department already exists");
+    if (existing) {
+      throw new Error("Department already exists");
+    }
 
     const department = departmentRepo.create({ name });
     return await departmentRepo.save(department);
   }
 
-<<<<<<< Updated upstream
   async assignManager(
     departmentId: string,
     userId: string,
     options: AuditOptions = {}
   ) {
-=======
-  async assignManager(departmentId: string, userId: string) {
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     const department = await departmentRepo.findOne({ where: { id: departmentId } });
 
-    if (!department) throw new Error("Department not found");
-
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-    const user = await userRepo.findOne({
-      where: { id: userId },
-      relations: ["role", "department"],
-    });
-    if (!user) throw new Error("User not found");
-
-    if (!this.isManager(user)) {
-      throw new Error("User must have Manager role");
+    if (!department) {
+      throw new Error("Department not found");
     }
 
-    await this.ensureDepartmentManagerSlot(departmentId, user.id);
-
-    user.department = department;
-    await userRepo.save(user);
-
-    return this.getDepartmentById(department.id);
-  }
-
-  async assignUserToDepartment(userId: string, departmentId: string){
->>>>>>> Stashed changes
     const user = await userRepo.findOne({
       where: { id: userId },
       relations: ["role", "department"],
     });
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      throw new Error("User not found");
+    }
 
     if (!this.isManager(user)) {
       throw new Error("User must have Manager role");
@@ -206,17 +162,21 @@ export class DepartmentService {
     userId: string,
     departmentId: string,
     options: AuditOptions = {}
-  ){
+  ) {
     const user = await userRepo.findOne({
       where: { id: userId },
       relations: ["role", "department"],
     });
-    if(!user) throw new Error("User Not Found");
-    
+    if (!user) {
+      throw new Error("User Not Found");
+    }
+
     const department = await departmentRepo.findOne({
       where: { id: departmentId },
     });
-    if(!department) throw new Error("Department Not Found");
+    if (!department) {
+      throw new Error("Department Not Found");
+    }
 
     if (this.isManager(user)) {
       await this.ensureDepartmentManagerSlot(departmentId, user.id);
@@ -253,12 +213,15 @@ export class DepartmentService {
     return user;
   }
 
-  async getDepartmentById(id: string){
+  async getDepartmentById(id: string) {
     const department = await departmentRepo.findOne({
-        where: { id },
-        relations: ["employees", "employees.role"],
+      where: { id },
+      relations: ["employees", "employees.role"],
     });
-    if(!department) throw new Error("Department not found");
+    if (!department) {
+      throw new Error("Department not found");
+    }
+
     return this.withDerivedManager(department);
   }
 
@@ -266,11 +229,13 @@ export class DepartmentService {
     id: string,
     name: string,
     options: AuditOptions = {}
-  ){
+  ) {
     const department = await departmentRepo.findOne({
-        where: { id },
+      where: { id },
     });
-    if(!department) throw new Error("Department not Found");
+    if (!department) {
+      throw new Error("Department not Found");
+    }
 
     const previousDepartmentSnapshot = this.buildDepartmentAuditSnapshot(department);
     department.name = name.trim();
@@ -301,17 +266,20 @@ export class DepartmentService {
     return department;
   }
 
-  async deleteDepartment(id: string){
+  async deleteDepartment(id: string) {
     const department = await departmentRepo.findOne({
-        where: {id},
-        relations: ["employees"],
+      where: { id },
+      relations: ["employees"],
     });
 
-    if(!department) throw new Error("Department not Found");
+    if (!department) {
+      throw new Error("Department not Found");
+    }
 
-    for (const user of department.employees){
-        user.department = null as any;
-        await userRepo.save(user);
+    for (const user of department.employees) {
+      user.department = null;
+      user.departmentId = null;
+      await userRepo.save(user);
     }
 
     await departmentRepo.remove(department);
