@@ -5,15 +5,11 @@ import { Role } from "../entities/role";
 import { AuthRequest } from "../middleware/auth.middleware";
 import * as service from "../services/roles.service";
 
-const roleRepo = AppDataSource.getRepository(Role);
-
 const sendValidationError = (res: Response, error: z.ZodError) =>
   res.status(400).json({
     message: "Invalid request",
     errors: error.flatten().fieldErrors,
   });
-
-const roleRepo = AppDataSource.getRepository(Role);
 
 const roleRepo = AppDataSource.getRepository(Role);
 

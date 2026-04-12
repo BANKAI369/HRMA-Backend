@@ -68,12 +68,5 @@ export const seedRBAC = async () => {
   await roleRepo.save(roleEntities["Admin"]);
   await roleRepo.save(roleEntities["Manager"]);
   await roleRepo.save(roleEntities["Employee"]);
-<<<<<<< Updated upstream
-=======
-
   console.log("NEST access control seed completed");
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 };

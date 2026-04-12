@@ -3,6 +3,14 @@ import path from "path";
 import { ensureDirectoryExists, resolveDocumentUploadDirectory } from "../utils/file-storage";
 
 const uploadDir = resolveDocumentUploadDirectory();
+const allowedMimeTypes = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const allowedExtensions = new Set([".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"]);
 
 const storage = multer.diskStorage({
   destination: async (_req, _file, callback) => {
@@ -26,5 +34,17 @@ export const uploadDocument = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, callback) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+    if (!allowedMimeTypes.has(file.mimetype) || !allowedExtensions.has(extension)) {
+      const error = new Error(
+        "Only PDF, JPG, JPEG, PNG, DOC, and DOCX files are allowed"
+      ) as Error & { status?: number };
+      error.status = 400;
+      return callback(error);
+    }
+
+    callback(null, true);
   },
 });

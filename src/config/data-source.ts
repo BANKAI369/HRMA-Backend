@@ -1,24 +1,12 @@
 import "reflect-metadata";
 import { join } from "path";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import dotenv from "dotenv";
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import { DataSource } from "typeorm";
 import { AuditLog } from "../entities/AuditLog";
 import { Currency } from "../entities/Currency";
 import { Department } from "../entities/Department";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import { Document } from "../entities/Document";
 import { DocumentType } from "../entities/DocumentTypes";
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import { EmployeeGroup } from "../entities/EmployeeGroup";
 import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { ExitRequest } from "../entities/ExitRequest";
@@ -40,28 +28,15 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "Bankai@123",
   database: process.env.DB_NAME || "HRMA",
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   synchronize: (process.env.DB_SYNCHRONIZE || "false").toLowerCase() === "true",
-=======
-=======
->>>>>>> Stashed changes
-  synchronize: (process.env.DB_SYNCHRONIZE || "true").toLowerCase() === "true",
->>>>>>> Stashed changes
   logging: false,
   entities: [
     User,
     Role,
     Permission,
     Department,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     Document,
     DocumentType,
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     AuditLog,
     Location,
     JobTitle,

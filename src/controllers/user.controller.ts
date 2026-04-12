@@ -344,8 +344,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     const cognitoUsernameToDelete =
       user?.cognitoUsername || user?.email || cognitoUsernameFromId;
 
@@ -362,13 +360,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       const actorUserId = await resolveActorUserId(req);
       const previousDeactivationSnapshot =
         buildUserDeactivationAuditSnapshot(user);
-
-=======
-    if (user) {
->>>>>>> Stashed changes
-=======
-    if (user) {
->>>>>>> Stashed changes
       await AppDataSource.transaction(async (transactionManager) => {
         user.isActive = false;
         user.role = null;
@@ -815,8 +806,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       }
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     if (departmentId !== undefined && (departmentId === null || departmentId === "")) {
       user.departmentId = null;
     }
@@ -838,11 +827,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         profile.jobTitleId = jobTitle.id;
       }
     }
-
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     if (isManagerAfterUpdate && nextDepartmentId) {
       const existingManager = await userRepo
         .createQueryBuilder("u")
@@ -861,8 +845,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
           .status(400)
           .json({ message: "Department already has a manager" });
       }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     }
 
     const shouldSyncCognitoRole =
@@ -880,10 +862,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         email: user.email,
         name: user.username,
       });
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     }
 
     if (shouldSyncCognitoStatus && cognitoIdentifier) {

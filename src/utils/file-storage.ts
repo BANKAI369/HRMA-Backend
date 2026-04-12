@@ -1,4 +1,4 @@
-import { mkdir, unlink } from "fs/promises";
+import { access, mkdir, unlink } from "fs/promises";
 import path from "path";
 
 export const ensureDirectoryExists = async (directoryPath: string) => {
@@ -15,5 +15,14 @@ export const deleteLocalFile = async (filePath: string) => {
     if (error?.code !== "ENOENT") {
       throw error;
     }
+  }
+};
+
+export const localFileExists = async (filePath: string) => {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 };
