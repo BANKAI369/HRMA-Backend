@@ -1,7 +1,10 @@
 import { AppDataSource } from "../config/data-source";
 import { Department } from "../entities/Department";
 import { User } from "../entities/User";
+<<<<<<< Updated upstream
 import { auditLogService, buildAuditDiff } from "./audit-log.service";
+=======
+>>>>>>> Stashed changes
 import { Roles } from "../utils/roles.enum";
 
 const departmentRepo = AppDataSource.getRepository(Department);
@@ -12,6 +15,7 @@ type AuditOptions = {
 };
 
 export class DepartmentService {
+<<<<<<< Updated upstream
   private buildDepartmentAuditSnapshot(department: Department) {
     return {
       name: department.name,
@@ -24,6 +28,8 @@ export class DepartmentService {
     };
   }
 
+=======
+>>>>>>> Stashed changes
   private serializeManager(user: User | null) {
     if (!user) {
       return null;
@@ -47,6 +53,7 @@ export class DepartmentService {
     return user?.role?.name?.toLowerCase() === Roles.Manager.toLowerCase();
   }
 
+<<<<<<< Updated upstream
   private serializeDepartment(department: Department | null) {
     if (!department) {
       return null;
@@ -58,6 +65,8 @@ export class DepartmentService {
     };
   }
 
+=======
+>>>>>>> Stashed changes
   private async ensureDepartmentManagerSlot(
     departmentId: string,
     currentUserId?: string
@@ -100,15 +109,41 @@ export class DepartmentService {
     return await departmentRepo.save(department);
   }
 
+<<<<<<< Updated upstream
   async assignManager(
     departmentId: string,
     userId: string,
     options: AuditOptions = {}
   ) {
+=======
+  async assignManager(departmentId: string, userId: string) {
+>>>>>>> Stashed changes
     const department = await departmentRepo.findOne({ where: { id: departmentId } });
 
     if (!department) throw new Error("Department not found");
 
+<<<<<<< Updated upstream
+=======
+    const user = await userRepo.findOne({
+      where: { id: userId },
+      relations: ["role", "department"],
+    });
+    if (!user) throw new Error("User not found");
+
+    if (!this.isManager(user)) {
+      throw new Error("User must have Manager role");
+    }
+
+    await this.ensureDepartmentManagerSlot(departmentId, user.id);
+
+    user.department = department;
+    await userRepo.save(user);
+
+    return this.getDepartmentById(department.id);
+  }
+
+  async assignUserToDepartment(userId: string, departmentId: string){
+>>>>>>> Stashed changes
     const user = await userRepo.findOne({
       where: { id: userId },
       relations: ["role", "department"],

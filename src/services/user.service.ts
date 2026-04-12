@@ -35,6 +35,7 @@ type UpdateUserInput = Partial<User> & {
   jobTitleId?: string | null;
 };
 
+<<<<<<< Updated upstream
 const normalizeOptionalId = (value: NullableId) => {
   if (value === undefined) {
     return undefined;
@@ -107,6 +108,10 @@ const resolveJobTitle = async (jobTitleId: NullableId) => {
 
   return jobTitle;
 };
+=======
+const buildTemporaryPassword = () =>
+  `NEST${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`;
+>>>>>>> Stashed changes
 
 export class UserService {
   async create(data: CreateUserInput, options: AuditOptions = {}) {

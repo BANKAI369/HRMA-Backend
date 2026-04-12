@@ -13,6 +13,8 @@ const sendValidationError = (res: Response, error: z.ZodError) =>
     errors: error.flatten().fieldErrors,
   });
 
+const roleRepo = AppDataSource.getRepository(Role);
+
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required"),
 });

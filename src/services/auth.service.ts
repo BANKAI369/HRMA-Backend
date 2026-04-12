@@ -6,6 +6,16 @@ import { Roles } from "../utils/roles.enum";
 const userRepo = AppDataSource.getRepository(User);
 const roleRepo = AppDataSource.getRepository(Role);
 
+<<<<<<< Updated upstream
+=======
+const JWT_SECRET: Secret = process.env.JWT_SECRET || "hrma-local-secret";
+const JWT_EXPIRES_IN: SignOptions["expiresIn"] =
+  (process.env.JWT_EXPIRES_IN || "7d") as SignOptions["expiresIn"];
+
+const buildTemporaryPassword = () =>
+  `NEST${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`;
+
+>>>>>>> Stashed changes
 const sanitizeUser = (user: User) => ({
   id: user.id,
   username: user.username,
