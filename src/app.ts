@@ -9,6 +9,7 @@ import masterDataRoutes from "./routes/master-data.routes";
 import permissionRoutes from "./routes/permissions.routes";
 import roleRoutes from "./routes/roles.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import documentRoutes from "./routes/document.routes";
 import documentTypeRoutes from "./routes/document-type.routes";
 import exitRequestRoutes from "./routes/exit-request.routes";
 
@@ -27,6 +28,7 @@ app.use("/api/master-data", masterDataRoutes);
 app.use("/api/permissions", permissionRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/documents", documentRoutes);
 app.use("/api/document-types", documentTypeRoutes);
 
 app.use(errorHandler);
