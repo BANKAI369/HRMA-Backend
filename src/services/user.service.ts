@@ -111,6 +111,9 @@ const resolveJobTitle = async (jobTitleId: NullableId) => {
 =======
 const buildTemporaryPassword = () =>
   `NEST${Math.random().toString(36).slice(2, 6)}${Date.now().toString().slice(-4)}`;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 export class UserService {

@@ -97,6 +97,9 @@ async function runSeeds() {
     await AppDataSource.initialize();
 =======
     await seedRoles();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     await seedRBAC();
     await seedAdmin();

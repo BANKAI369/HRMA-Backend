@@ -2,7 +2,10 @@ import { AppDataSource } from "../config/data-source";
 import { Department } from "../entities/Department";
 import { User } from "../entities/User";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { auditLogService, buildAuditDiff } from "./audit-log.service";
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 import { Roles } from "../utils/roles.enum";
@@ -16,6 +19,7 @@ type AuditOptions = {
 
 export class DepartmentService {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   private buildDepartmentAuditSnapshot(department: Department) {
     return {
       name: department.name,
@@ -28,6 +32,8 @@ export class DepartmentService {
     };
   }
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
   private serializeManager(user: User | null) {
@@ -54,6 +60,7 @@ export class DepartmentService {
   }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   private serializeDepartment(department: Department | null) {
     if (!department) {
       return null;
@@ -65,6 +72,8 @@ export class DepartmentService {
     };
   }
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
   private async ensureDepartmentManagerSlot(
@@ -117,13 +126,19 @@ export class DepartmentService {
   ) {
 =======
   async assignManager(departmentId: string, userId: string) {
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     const department = await departmentRepo.findOne({ where: { id: departmentId } });
 
     if (!department) throw new Error("Department not found");
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
     const user = await userRepo.findOne({
       where: { id: userId },
       relations: ["role", "department"],
