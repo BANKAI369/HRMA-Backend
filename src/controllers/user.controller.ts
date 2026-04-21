@@ -1,31 +1,21 @@
 import { Response } from "express";
 import { In } from "typeorm";
 import { z } from "zod";
-import { UserService } from "../services/user.service";
-import { AuthRequest } from "../middleware/auth.middleware";
 import { AppDataSource } from "../config/data-source";
+import { Department } from "../entities/Department";
 import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { JobTitle } from "../entities/JobTitle";
 import { User } from "../entities/User";
 import { Role } from "../entities/role";
-import { Department } from "../entities/Department";
-import {
-  createCognitoUser,
-  deleteCognitoUser,
-  getCognitoUserIdentity,
-  setCognitoUserEnabled,
-  updateCognitoUserProfile,
-  setCognitoUserRole,
-} from "../services/cognito.service";
-import { auditLogService, buildAuditDiff } from "../services/audit-log.service";
-import {
-  resolveActorUserId,
-  resolveAuthenticatedUser,
-} from "../utils/auth-user.utils";
+import { AuthRequest } from "../middleware/auth.middleware";
+import { AuthService } from "../services/auth.service";
+import { UserService } from "../services/user.service";
+import { resolveAuthenticatedUser } from "../utils/auth-user.utils";
 import { Roles } from "../utils/roles.enum";
 import { normalizeRole, resolveRequestRole } from "../utils/role.utils";
 
 const service = new UserService();
+const authService = new AuthService();
 
 const nullableIdField = z
   .union([z.string().trim().min(1), z.literal(""), z.null()])
@@ -33,16 +23,16 @@ const nullableIdField = z
 
 const createUserSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
-  email: z.string().email("Invalid email format"),
+  email: z.string().trim().toLowerCase().email("Invalid email format"),
   role: z.nativeEnum(Roles).optional(),
-  departmentId: nullableIdField,
-  jobTitleId: nullableIdField,
+  password: z.string().trim().min(6).optional(),
 });
 
 const updateUserSchema = z.object({
   username: z.string().trim().min(1).optional(),
-  email: z.string().email().optional(),
+  email: z.string().trim().toLowerCase().email().optional(),
   role: z.string().trim().min(1).optional(),
+  password: z.string().trim().min(6).optional(),
   isActive: z.boolean().optional(),
   departmentId: nullableIdField,
   jobTitleId: nullableIdField,
@@ -52,96 +42,14 @@ const idParamSchema = z.object({
   id: z.string().min(1, "Invalid id"),
 });
 
-const COGNITO_ID_PREFIX = "cognito:";
-
-const extractCognitoUsernameFromId = (id: string) => {
-  if (!id.startsWith(COGNITO_ID_PREFIX)) {
-    return null;
-  }
-
-  const cognitoUsername = id.slice(COGNITO_ID_PREFIX.length).trim();
-  return cognitoUsername || null;
-};
-
-const buildUserLookupWhere = (id: string) => {
-  const cognitoUsernameFromId = extractCognitoUsernameFromId(id);
-
-  if (!cognitoUsernameFromId) {
-    return {
-      where: { id },
-      cognitoUsernameFromId: null,
-    };
-  }
-
-  return {
-    where: [
-      { cognitoUsername: cognitoUsernameFromId },
-      { email: cognitoUsernameFromId },
-      { cognitoSub: cognitoUsernameFromId },
-    ],
-    cognitoUsernameFromId,
-  };
-};
-
-const findUserByIdOrCognitoIdentity = async (
-  id: string,
-  userRepo: ReturnType<typeof AppDataSource.getRepository<User>>
-) => {
-  const { where, cognitoUsernameFromId } = buildUserLookupWhere(id);
-
-  const user = await userRepo.findOne({
-    where,
-    relations: ["role", "department"],
-  });
-
-  return {
-    user,
-    cognitoUsernameFromId,
-  };
-};
-
-const isCognitoUserMissingError = (error: unknown) => {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return (
-    error.name === "UserNotFoundException" ||
-    error.message.toLowerCase().includes("usernotfoundexception")
-  );
-};
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return fallback;
-};
-
 const serializeRole = (role: Role | null) =>
-  role
-    ? {
-        id: role.id,
-        name: role.name,
-      }
-    : null;
+  role ? { id: role.id, name: role.name } : null;
 
 const serializeDepartment = (department: Department | null) =>
-  department
-    ? {
-        id: department.id,
-        name: department.name,
-      }
-    : null;
+  department ? { id: department.id, name: department.name } : null;
 
 const serializeJobTitle = (jobTitle: JobTitle | null) =>
-  jobTitle
-    ? {
-        id: jobTitle.id,
-        name: jobTitle.name,
-      }
-    : null;
+  jobTitle ? { id: jobTitle.id, name: jobTitle.name } : null;
 
 const serializeUserManagementResponse = (
   user: User,
@@ -151,8 +59,7 @@ const serializeUserManagementResponse = (
   username: user.username,
   email: user.email,
   isActive: user.isActive,
-  cognitoUsername: user.cognitoUsername,
-  cognitoSub: user.cognitoSub,
+  mustChangePassword: user.mustChangePassword,
   role: serializeRole(user.role ?? null),
   department: serializeDepartment(user.department ?? null),
   jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
@@ -167,9 +74,7 @@ const loadProfilesByUserIds = async (userIds: string[]) => {
 
   const profileRepo = AppDataSource.getRepository(EmployeeProfile);
   const profiles = await profileRepo.find({
-    where: {
-      userId: In(userIds),
-    },
+    where: { userId: In(userIds) },
     relations: ["jobTitle"],
   });
 
@@ -208,11 +113,7 @@ const ensureProfile = async (userId: string) => {
     return existingProfile;
   }
 
-  const profile = profileRepo.create({
-    userId,
-  });
-
-  return profileRepo.save(profile);
+  return profileRepo.save(profileRepo.create({ userId }));
 };
 
 const buildUserSearchText = (
@@ -238,41 +139,26 @@ const isSoftDeletedUser = (
       }
 ) => !user.isActive && !user.role;
 
-const buildRoleAuditSnapshot = (user: User) => ({
-  role: serializeRole(user.role ?? null),
-});
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
 
-const buildActivationAuditSnapshot = (user: User) => ({
-  isActive: user.isActive,
-});
-
-const buildManagedUserAuditSnapshot = (
-  user: User,
-  profile: EmployeeProfile | null
-) => ({
-  department: serializeDepartment(user.department ?? null),
-  jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
-});
-
-const buildUserDeactivationAuditSnapshot = (user: User) => ({
-  isActive: user.isActive,
-  role: serializeRole(user.role ?? null),
-  department: serializeDepartment(user.department ?? null),
-});
+  return fallback;
+};
 
 export async function createUser(req: AuthRequest, res: Response) {
-  try {
-    const parsed = createUserSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
 
-    const { username, email, role, departmentId, jobTitleId } = parsed.data;
+  try {
     const requesterRole = resolveRequestRole(req);
-    const selectedRole = role ?? Roles.Employee;
+    const selectedRole = parsed.data.role ?? Roles.Employee;
 
     if (requesterRole === Roles.Manager && selectedRole !== Roles.Employee) {
       return res.status(403).json({
@@ -280,135 +166,51 @@ export async function createUser(req: AuthRequest, res: Response) {
       });
     }
 
-    await createCognitoUser(email, selectedRole, {
-      formattedName: username,
-      suppressMessage: false,
+    const created = await authService.provisionLocalUser({
+      username: parsed.data.username,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      roleName: selectedRole,
     });
 
-    const cognitoUser = await getCognitoUserIdentity(email);
-    const actorUserId = await resolveActorUserId(req);
+    const createdUser = await loadSerializedUserById(created.user.id);
 
-    let user: User;
-    try {
-      user = await service.create({
-        username,
-        email,
-        cognitoUsername: cognitoUser.cognitoUsername,
-        cognitoSub: cognitoUser.cognitoSub,
-        roleName: selectedRole,
-        departmentId,
-        jobTitleId,
-      }, {
-        actorUserId,
-      });
-    } catch (error) {
-      await deleteCognitoUser(cognitoUser.cognitoUsername).catch(() => undefined);
-      throw error;
-    }
-
-    const createdUser = await loadSerializedUserById(user.id);
-
-    res.status(201).json({
+    return res.status(201).json({
       ...createdUser,
-      message:
-        "User created successfully. A temporary password has been sent to the user's email. They can sign in and set a new password.",
+      temporaryPassword: created.temporaryPassword,
+      message: created.temporaryPassword
+        ? `User created successfully. Temporary password: ${created.temporaryPassword}`
+        : "User created successfully.",
     });
-  } catch (error: any) {
-    res.status(500).json({
-      message: "Failed to create user",
-      error: error.message,
+  } catch (error) {
+    return res.status(400).json({
+      message: getErrorMessage(error, "Failed to create user"),
     });
   }
 }
 
-
-export const deleteUser = async (req: AuthRequest, res: Response) => {
-  try {
-    const userRepo = AppDataSource.getRepository(User);
-    const parsed = idParamSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
-    const { id } = parsed.data;
-    const { where, cognitoUsernameFromId } = buildUserLookupWhere(id);
-
-    const user = await userRepo.findOne({
-      where,
-      relations: ["role", "department"],
+export async function deleteUser(req: AuthRequest, res: Response) {
+  const parsed = idParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
     });
-
-    if (!user && !cognitoUsernameFromId) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const cognitoUsernameToDelete =
-      user?.cognitoUsername || user?.email || cognitoUsernameFromId;
-
-    if (cognitoUsernameToDelete) {
-      try {
-        await setCognitoUserEnabled(cognitoUsernameToDelete, false);
-      } catch (error) {
-        if (!isCognitoUserMissingError(error)) {
-          throw error;
-        }
-      }
-    }
-    if (user) {
-      const actorUserId = await resolveActorUserId(req);
-      const previousDeactivationSnapshot =
-        buildUserDeactivationAuditSnapshot(user);
-      await AppDataSource.transaction(async (transactionManager) => {
-        user.isActive = false;
-        user.role = null;
-        user.roleId = null;
-        user.department = null;
-        user.departmentId = null;
-        await transactionManager.save(User, user);
-
-        const deactivationAuditDiff = buildAuditDiff(
-          previousDeactivationSnapshot,
-          buildUserDeactivationAuditSnapshot(user)
-        );
-
-        if (previousDeactivationSnapshot.isActive && deactivationAuditDiff.hasChanges) {
-          await auditLogService.log(
-            {
-              actorUserId,
-              action: "EMPLOYEE_DEACTIVATED",
-              entityType: "user",
-              entityId: user.id,
-              oldValue: deactivationAuditDiff.oldValue,
-              newValue: deactivationAuditDiff.newValue,
-            },
-            transactionManager
-          );
-        }
-      });
-    }
-
-    return res.status(200).json({ message: "User deleted successfully" });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to delete user";
-    res.status(500).json({ message });
   }
-};
+
+  try {
+    return res.status(200).json(await service.remove(parsed.data.id));
+  } catch (error) {
+    return res.status(400).json({
+      message: getErrorMessage(error, "Failed to delete user"),
+    });
+  }
+}
 
 export async function getUsers(req: AuthRequest, res: Response) {
   try {
-    const role = resolveRequestRole(req);
-    const isAdmin = role?.toLowerCase() === "admin";
-
-    if (!isAdmin) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
     const requesterId = req.user?.id ?? null;
     const requesterEmail = req.user?.email ?? null;
-
     const rawSearch =
       typeof req.query.search === "string" ? req.query.search.trim() : "";
     const search = rawSearch.toLowerCase();
@@ -452,10 +254,11 @@ export async function getUsers(req: AuthRequest, res: Response) {
         return bDate - aDate;
       });
 
-    res.json(serializedUsers);
-
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    return res.json(serializedUsers);
+  } catch (error) {
+    return res.status(500).json({
+      message: getErrorMessage(error, "Failed to fetch users"),
+    });
   }
 }
 
@@ -473,19 +276,18 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       relations: ["jobTitle"],
     });
 
-    res.json(serializeUserManagementResponse(currentUser, profile));
-  } catch (error: any) {
-    res.status(500).json({ message: error.message || "Failed to fetch user" });
+    return res.json(serializeUserManagementResponse(currentUser, profile));
+  } catch (error) {
+    return res.status(500).json({
+      message: getErrorMessage(error, "Failed to fetch user"),
+    });
   }
 }
 
 export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const currentUser = await resolveAuthenticatedUser(req, [
-      "role",
-      "department",
-    ]);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
     const requesterId = req.user?.id ?? null;
     const requesterEmail = req.user?.email || null;
 
@@ -493,55 +295,32 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!currentUser?.department?.id) {
-      return res.status(400).json({ message: "User is not assigned to any department" });
+    if (!currentUser.department?.id) {
+      return res
+        .status(400)
+        .json({ message: "User is not assigned to any department" });
     }
 
     const rawSearch =
       typeof req.query.search === "string" ? req.query.search.trim() : "";
-    const rawName =
-      typeof req.query.name === "string" ? req.query.name.trim() : "";
-    const rawEmail =
-      typeof req.query.email === "string" ? req.query.email.trim() : "";
-
     const search = rawSearch.toLowerCase();
-    const name = rawName.toLowerCase();
-    const email = rawEmail.toLowerCase();
 
-    const query = userRepo
-      .createQueryBuilder("user")
-      .innerJoinAndSelect("user.department", "department")
-      .leftJoinAndSelect("user.role", "role")
-      .where("department.id = :departmentId", {
-        departmentId: currentUser.department.id,
-      });
-
-    if (search) {
-      query.andWhere(
-        "(LOWER(user.username) LIKE :search OR LOWER(user.email) LIKE :search)",
-        { search: `%${search}%` }
-      );
-    }
-
-    if (name) {
-      query.andWhere("LOWER(user.username) LIKE :name", {
-        name: `%${name}%`,
-      });
-    }
-
-    if (email) {
-      query.andWhere("LOWER(user.email) LIKE :email", {
-        email: `%${email}%`,
-      });
-    }
-
-    const users = (await query.getMany()).filter((user) => {
+    const users = (
+      await userRepo.find({
+        where: { departmentId: currentUser.department.id },
+        relations: ["department", "role"],
+      })
+    ).filter((user) => {
       if (requesterEmail && user.email === requesterEmail) {
         return false;
       }
 
       if (!requesterEmail && requesterId && user.id === requesterId) {
         return false;
+      }
+
+      if (search) {
+        return `${user.username} ${user.email}`.toLowerCase().includes(search);
       }
 
       return true;
@@ -551,7 +330,7 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
       users.map((user) => user.id)
     );
 
-    res.json(
+    return res.json(
       users.map((user) =>
         serializeUserManagementResponse(
           user,
@@ -559,35 +338,30 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
         )
       )
     );
-  } catch (error) {
-
-    res.status(500).json({
+  } catch {
+    return res.status(500).json({
       message: "Failed to fetch department users",
     });
   }
 };
 
 export async function getUser(req: AuthRequest, res: Response) {
+  const parsed = idParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
   try {
-    const parsed = idParamSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
-    const requestedUserId = parsed.data.id;
-
     const role = resolveRequestRole(req);
-    const isAdmin = role?.toLowerCase() === "admin";
-    const user = await service.findOne(requestedUserId);
-
-    const requesterSub = req.user?.sub;
+    const isAdmin = role.toLowerCase() === Roles.Admin.toLowerCase();
+    const user = await service.findOne(parsed.data.id);
     const requesterEmail = req.user?.email || null;
     const isSelf =
-      (requesterSub && user.cognitoSub === requesterSub) ||
       (requesterEmail && user.email === requesterEmail) ||
-      req.user?.id === requestedUserId;
+      req.user?.id === parsed.data.id;
 
     if (!isAdmin && !isSelf) {
       return res.status(403).json({ message: "Forbidden" });
@@ -599,62 +373,43 @@ export async function getUser(req: AuthRequest, res: Response) {
       relations: ["jobTitle"],
     });
 
-    res.json(serializeUserManagementResponse(user, profile));
-
-  } catch (error: any) {
-    res.status(404).json({ message: error.message });
+    return res.json(serializeUserManagementResponse(user, profile));
+  } catch (error) {
+    return res.status(404).json({
+      message: getErrorMessage(error, "User not found"),
+    });
   }
 }
 
 export const updateUser = async (req: AuthRequest, res: Response) => {
-  try {
-    const paramsParsed = idParamSchema.safeParse(req.params);
-    if (!paramsParsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: paramsParsed.error.flatten().fieldErrors,
-      });
-    }
-    const bodyParsed = updateUserSchema.safeParse(req.body);
-    if (!bodyParsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: bodyParsed.error.flatten().fieldErrors,
-      });
-    }
+  const paramsParsed = idParamSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: paramsParsed.error.flatten().fieldErrors,
+    });
+  }
 
+  const bodyParsed = updateUserSchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: bodyParsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
     const userRepo = AppDataSource.getRepository(User);
     const roleRepo = AppDataSource.getRepository(Role);
     const departmentRepo = AppDataSource.getRepository(Department);
-    const profileRepo = AppDataSource.getRepository(EmployeeProfile);
     const jobTitleRepo = AppDataSource.getRepository(JobTitle);
-
-    const { username, email, role, isActive, departmentId, jobTitleId } =
+    const { username, email, role, isActive, departmentId, jobTitleId, password } =
       bodyParsed.data;
-    const actorUserId = await resolveActorUserId(req);
-    const { user: existingUser, cognitoUsernameFromId } =
-      await findUserByIdOrCognitoIdentity(paramsParsed.data.id, userRepo);
 
-    let user = existingUser;
-
-    if (!user && cognitoUsernameFromId) {
-      const cognitoUser = await getCognitoUserIdentity(cognitoUsernameFromId);
-      const nextUsername = username?.trim() || cognitoUser.email || cognitoUsernameFromId;
-
-      user = await service.create({
-        username: nextUsername,
-        email: cognitoUser.email || cognitoUsernameFromId,
-        cognitoUsername: cognitoUser.cognitoUsername,
-        cognitoSub: cognitoUser.cognitoSub,
-      }, {
-        actorUserId,
-      });
-
-      user = await userRepo.findOne({
-        where: { id: user.id },
-        relations: ["role", "department"],
-      });
-    }
+    const user = await userRepo.findOne({
+      where: { id: paramsParsed.data.id },
+      relations: ["role", "department"],
+    });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -669,10 +424,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     }
 
     if (isManagerRequester) {
-      const currentUser = await resolveAuthenticatedUser(req, [
-        "role",
-        "department",
-      ]);
+      const currentUser = await resolveAuthenticatedUser(req, ["department"]);
       const requestedFields = Object.entries(bodyParsed.data).filter(
         ([, value]) => value !== undefined
       );
@@ -688,62 +440,26 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
       if (!isStatusOnlyRequest) {
         return res.status(403).json({
-          message:
-            "Managers can only update status for users in their department",
+          message: "Managers can only update status for users in their department",
         });
       }
     }
 
-    const previousUsername = user.username;
-    const previousEmail = user.email;
-    const previousIsActive = user.isActive;
-    const previousRoleName = user.role?.name ?? null;
-    let nextCognitoRole: Roles | null = null;
-    let cognitoIdentifier = user.cognitoUsername?.trim() || null;
-    const profile = await ensureProfile(user.id);
-    const previousRoleSnapshot = buildRoleAuditSnapshot(user);
-    const previousActivationSnapshot = buildActivationAuditSnapshot(user);
-    const previousManagedUserSnapshot = buildManagedUserAuditSnapshot(
-      user,
-      profile
-    );
-
-    if (!cognitoIdentifier && user.email) {
-      try {
-        const cognitoIdentity = await getCognitoUserIdentity(user.email);
-        cognitoIdentifier = cognitoIdentity.cognitoUsername;
-        user.cognitoUsername = cognitoIdentity.cognitoUsername;
-        user.cognitoSub = cognitoIdentity.cognitoSub;
-      } catch (error) {
-        if (!isCognitoUserMissingError(error)) {
-          throw error;
-        }
-      }
-    }
-
-    // update fields
     if (typeof username === "string") {
-      const trimmedUsername = username.trim();
-      if (!trimmedUsername) {
-        return res.status(400).json({ message: "Username is required" });
-      }
-
+      const normalizedUsername = username.trim();
       const existingUsernameUser = await userRepo.findOne({
-        where: { username: trimmedUsername },
+        where: { username: normalizedUsername },
       });
 
       if (existingUsernameUser && existingUsernameUser.id !== user.id) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      user.username = trimmedUsername;
+      user.username = normalizedUsername;
     }
+
     if (typeof email === "string") {
       const normalizedEmail = email.trim().toLowerCase();
-      if (!normalizedEmail) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-
       const existingEmailUser = await userRepo.findOne({
         where: { email: normalizedEmail },
       });
@@ -754,44 +470,34 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
       user.email = normalizedEmail;
     }
-    if (typeof isActive === "boolean") user.isActive = isActive;
 
-    // update role
     if (typeof role === "string" && role.trim()) {
       const normalizedRole = normalizeRole(role);
       if (!normalizedRole) {
         return res.status(400).json({ message: "Invalid role" });
       }
 
-      const roleEntity = await roleRepo
-        .createQueryBuilder("role")
-        .where("LOWER(role.name) = :normalizedRole", {
-          normalizedRole: normalizedRole.toLowerCase(),
-        })
-        .getOne();
+      const roleEntity = await roleRepo.findOne({
+        where: { name: normalizedRole },
+      });
 
-      if (roleEntity) {
-        user.role = roleEntity;
-        user.roleId = roleEntity.id;
-        nextCognitoRole = normalizedRole;
+      if (!roleEntity) {
+        return res.status(404).json({ message: "Role not found" });
       }
+
+      user.role = roleEntity;
+      user.roleId = roleEntity.id;
     }
 
-    const isManagerAfterUpdate =
-      user.role?.name?.toLowerCase() === "manager";
-
-    let nextDepartmentId: string | null | undefined =
-      user.department?.id ?? null;
+    if (typeof isActive === "boolean") {
+      user.isActive = isActive;
+    }
 
     if (departmentId !== undefined) {
       if (departmentId === null || departmentId === "") {
-        user.department = null as any;
-        nextDepartmentId = null;
+        user.department = null;
+        user.departmentId = null;
       } else {
-        if (typeof departmentId !== "string" || !departmentId.trim()) {
-          return res.status(400).json({ message: "Invalid departmentId" });
-        }
-
         const department = await departmentRepo.findOne({
           where: { id: departmentId },
         });
@@ -801,16 +507,15 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         }
 
         user.department = department;
-        nextDepartmentId = department.id;
         user.departmentId = department.id;
       }
     }
 
-    if (departmentId !== undefined && (departmentId === null || departmentId === "")) {
-      user.departmentId = null;
-    }
+    await userRepo.save(user);
 
     if (jobTitleId !== undefined) {
+      const profile = await ensureProfile(user.id);
+
       if (jobTitleId === null || jobTitleId === "") {
         profile.jobTitle = null;
         profile.jobTitleId = null;
@@ -826,141 +531,18 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         profile.jobTitle = jobTitle;
         profile.jobTitleId = jobTitle.id;
       }
-    }
-    if (isManagerAfterUpdate && nextDepartmentId) {
-      const existingManager = await userRepo
-        .createQueryBuilder("u")
-        .leftJoin("u.role", "role")
-        .where("LOWER(role.name) = :roleName", {
-          roleName: Roles.Manager.toLowerCase(),
-        })
-        .andWhere("u.departmentId = :departmentId", {
-          departmentId: nextDepartmentId,
-        })
-        .andWhere("u.id != :userId", { userId: user.id })
-        .getOne();
 
-      if (existingManager) {
-        return res
-          .status(400)
-          .json({ message: "Department already has a manager" });
-      }
+      await AppDataSource.getRepository(EmployeeProfile).save(profile);
     }
 
-    const shouldSyncCognitoRole =
-      !!cognitoIdentifier &&
-      !!nextCognitoRole &&
-      nextCognitoRole !== normalizeRole(previousRoleName);
-    const shouldSyncCognitoProfile =
-      !!cognitoIdentifier &&
-      (user.username !== previousUsername || user.email !== previousEmail);
-    const shouldSyncCognitoStatus =
-      !!cognitoIdentifier && user.isActive !== previousIsActive;
-
-    if (shouldSyncCognitoProfile && cognitoIdentifier) {
-      await updateCognitoUserProfile(cognitoIdentifier, {
-        email: user.email,
-        name: user.username,
-      });
+    if (typeof password === "string" && password.trim()) {
+      await service.update(user.id, { password });
     }
 
-    if (shouldSyncCognitoStatus && cognitoIdentifier) {
-      await setCognitoUserEnabled(cognitoIdentifier, user.isActive);
-    }
-
-    if (shouldSyncCognitoRole && nextCognitoRole && cognitoIdentifier) {
-      await setCognitoUserRole(cognitoIdentifier, nextCognitoRole);
-    }
-
-    try {
-      const roleAuditDiff = buildAuditDiff(
-        previousRoleSnapshot,
-        buildRoleAuditSnapshot(user)
-      );
-      const activationAuditDiff = buildAuditDiff(
-        previousActivationSnapshot,
-        buildActivationAuditSnapshot(user)
-      );
-      const managedUserAuditDiff = buildAuditDiff(
-        previousManagedUserSnapshot,
-        buildManagedUserAuditSnapshot(user, profile)
-      );
-
-      await AppDataSource.transaction(async (transactionManager) => {
-        await transactionManager.save(User, user);
-        if (jobTitleId !== undefined) {
-          await transactionManager.save(EmployeeProfile, profile);
-        }
-
-        if (roleAuditDiff.hasChanges) {
-          await auditLogService.log(
-            {
-              actorUserId,
-              action: "USER_ROLE_CHANGED",
-              entityType: "user",
-              entityId: user.id,
-              oldValue: roleAuditDiff.oldValue,
-              newValue: roleAuditDiff.newValue,
-            },
-            transactionManager
-          );
-        }
-
-        if (
-          previousActivationSnapshot.isActive &&
-          activationAuditDiff.hasChanges &&
-          user.isActive === false
-        ) {
-          await auditLogService.log(
-            {
-              actorUserId,
-              action: "EMPLOYEE_DEACTIVATED",
-              entityType: "user",
-              entityId: user.id,
-              oldValue: activationAuditDiff.oldValue,
-              newValue: activationAuditDiff.newValue,
-            },
-            transactionManager
-          );
-        }
-
-        if (managedUserAuditDiff.hasChanges) {
-          await auditLogService.log(
-            {
-              actorUserId,
-              action: "EMPLOYEE_PROFILE_UPDATED",
-              entityType: "employee_profile",
-              entityId: user.id,
-              oldValue: managedUserAuditDiff.oldValue,
-              newValue: managedUserAuditDiff.newValue,
-            },
-            transactionManager
-          );
-        }
-      });
-    } catch (error) {
-      if (shouldSyncCognitoRole && previousRoleName && cognitoIdentifier) {
-        await setCognitoUserRole(cognitoIdentifier, previousRoleName).catch(
-          () => undefined
-        );
-      }
-      if (shouldSyncCognitoStatus && cognitoIdentifier) {
-        await setCognitoUserEnabled(cognitoIdentifier, previousIsActive).catch(
-          () => undefined
-        );
-      }
-      if (shouldSyncCognitoProfile && cognitoIdentifier) {
-        await updateCognitoUserProfile(cognitoIdentifier, {
-          email: previousEmail,
-          name: previousUsername,
-        }).catch(() => undefined);
-      }
-      throw error;
-    }
-
-    res.json(await loadSerializedUserById(user.id));
-
+    return res.json(await loadSerializedUserById(user.id));
   } catch (error) {
-    res.status(500).json({ message: getErrorMessage(error, "Update failed") });
+    return res.status(500).json({
+      message: getErrorMessage(error, "Update failed"),
+    });
   }
 };

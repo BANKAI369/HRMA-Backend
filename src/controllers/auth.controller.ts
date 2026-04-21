@@ -1,213 +1,99 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { AppDataSource } from "../config/data-source";
-import { User } from "../entities/User";
-import { UserService } from "../services/user.service";
-import {
-  deleteCognitoUser,
-  getCognitoUserIdentity,
-  setCognitoUserRole,
-} from "../services/cognito.service";
 import { AuthRequest } from "../middleware/auth.middleware";
-import { Role } from "../entities/role";
-import { Roles } from "../utils/roles.enum";
-import { resolveRequestRole } from "../utils/role.utils";
+import { AuthService } from "../services/auth.service";
 
-const userService = new UserService();
+const authService = new AuthService();
 
-const signUpSchema = z
-  .object({
-    email: z.string().trim().toLowerCase().email("Invalid email format"),
-    username: z.string().trim().min(1, "Username is required"),
-    gender: z.string().trim().min(1, "Gender is required").optional(),
-    formattedName: z.string().trim().min(1).optional(),
-  })
-  .strict();
+const registerSchema = z.object({
+  username: z.string().trim().min(1, "Username is required"),
+  email: z.string().trim().toLowerCase().email("Invalid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
-const extractAuthDisplayName = (req: AuthRequest) => {
-  const candidates = [
-    req.user?.name,
-    req.user?.given_name,
-    req.user?.preferred_username,
-    req.user?.email,
-  ];
+const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email"),
+  password: z.string().min(1, "Password is required"),
+});
 
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
+const resetPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const handleValidationError = (
+  res: Response,
+  parsed: { error: { flatten: () => { fieldErrors: Record<string, string[] | undefined> } } }
+) =>
+  res.status(400).json({
+    message: "Invalid request",
+    errors: parsed.error.flatten().fieldErrors,
+  });
+
+export async function register(req: Request, res: Response) {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return handleValidationError(res, parsed);
   }
 
-  return "User";
-};
-
-const buildUniqueUsername = async (
-  desiredUsername: string,
-  ignoreUserId?: string
-) => {
-  const userRepo = AppDataSource.getRepository(User);
-  const trimmed = desiredUsername.trim() || "User";
-  let candidate = trimmed;
-  let suffix = 1;
-
-  while (true) {
-    const existing = await userRepo.findOne({
-      where: { username: candidate },
-    });
-
-    if (!existing || existing.id === ignoreUserId) {
-      return candidate;
-    }
-
-    suffix += 1;
-    candidate = `${trimmed} ${suffix}`;
-  }
-};
-
-export async function syncProfile(req: AuthRequest, res: Response) {
   try {
-    const email =
-      typeof req.user?.email === "string" ? req.user.email.trim().toLowerCase() : "";
-    const cognitoSub =
-      typeof req.user?.sub === "string" ? req.user.sub.trim() : "";
-    const cognitoUsername =
-      typeof req.user?.["cognito:username"] === "string"
-        ? req.user["cognito:username"].trim()
-        : email;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    const userRepo = AppDataSource.getRepository(User);
-    const roleRepo = AppDataSource.getRepository(Role);
-    const roleName = resolveRequestRole(req);
-
-    const roleEntity = await roleRepo.findOne({
-      where: { name: roleName },
-    });
-
-    if (!roleEntity) {
-      return res.status(500).json({ message: "Role configuration is missing" });
-    }
-
-    let user =
-      (cognitoSub
-        ? await userRepo.findOne({
-            where: { cognitoSub },
-            relations: ["role", "department"],
-          })
-        : null) ||
-      (await userRepo.findOne({
-        where: [{ email }, { cognitoUsername: cognitoUsername || email }],
-        relations: ["role", "department"],
-      }));
-
-    const nextDisplayName = extractAuthDisplayName(req);
-
-    if (!user) {
-      const username = await buildUniqueUsername(nextDisplayName);
-      user = await userService.create({
-        email,
-        username,
-        cognitoUsername: cognitoUsername || email,
-        cognitoSub: cognitoSub || null,
-      });
-      user = await userRepo.findOne({
-        where: { id: user.id },
-        relations: ["role", "department"],
-      });
-    }
-
-    if (!user) {
-      return res.status(500).json({ message: "Failed to sync user profile" });
-    }
-
-    const nextUsername = await buildUniqueUsername(nextDisplayName, user.id);
-    user.email = email;
-    user.username = nextUsername;
-    user.cognitoUsername = cognitoUsername || email;
-    user.cognitoSub = cognitoSub || user.cognitoSub;
-    user.role = roleEntity;
-
-    await userRepo.save(user);
-
-    const syncedUser = await userRepo.findOne({
-      where: { id: user.id },
-      relations: ["role", "department"],
-    });
-
-    return res.status(200).json(syncedUser);
-  } catch (error: any) {
-    return res.status(500).json({
-      message: error?.message || "Failed to sync user profile",
-    });
+    return res.status(201).json(await authService.register(parsed.data));
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Registration failed";
+    return res.status(400).json({ message });
   }
 }
 
-export async function signUp(req: Request, res: Response) {
+export async function login(req: Request, res: Response) {
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return handleValidationError(res, parsed);
+  }
+
   try {
-    const parsed = signUpSchema.safeParse(req.body);
-
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
-
-    const { email, username } = parsed.data;
-    const userRepo = AppDataSource.getRepository(User);
-
-    const cognitoUser = await getCognitoUserIdentity(email);
-    if (!cognitoUser.cognitoUsername) {
-      return res.status(400).json({
-        message: "Cognito user lookup failed",
-      });
-    }
-
-    if (cognitoUser.status !== "CONFIRMED") {
-      return res.status(400).json({
-        message: "Verify your email before creating the profile",
-      });
-    }
-
-    const existingUser = await userRepo.findOne({
-      where: { email },
-      relations: ["role", "department"],
-    });
-
-    await setCognitoUserRole(
-      cognitoUser.cognitoUsername,
-      existingUser?.role?.name || Roles.Employee
+    return res.status(200).json(
+      await authService.signIn(parsed.data.email, parsed.data.password)
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Login failed";
+    return res.status(401).json({ message });
+  }
+}
 
-    if (existingUser) {
-      return res.status(200).json({
-        message: "Signup profile already exists",
-        user: existingUser,
-      });
-    }
+export async function resetPassword(req: Request, res: Response) {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return handleValidationError(res, parsed);
+  }
 
-    try {
-      const user = await userService.create({
-        email,
-        username,
-        cognitoUsername: cognitoUser.cognitoUsername,
-        cognitoSub: cognitoUser.cognitoSub,
-      });
+  try {
+    return res
+      .status(200)
+      .json(
+        await authService.resetPasswordDirect(
+          parsed.data.email,
+          parsed.data.newPassword
+        )
+      );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Reset password failed";
+    return res.status(400).json({ message });
+  }
+}
 
-      return res.status(201).json({
-        message: "Signup successful",
-        user,
-      });
-    } catch (error) {
-      await deleteCognitoUser(cognitoUser.cognitoUsername).catch(() => undefined);
-      throw error;
-    }
-  } catch (error: any) {
-    return res.status(400).json({
-      message: error?.message || "Signup failed",
-    });
+export async function getCurrentAuthUser(req: AuthRequest, res: Response) {
+  try {
+    return res.status(200).json(
+      await authService.syncUser({
+        id: typeof req.user?.id === "string" ? req.user.id : undefined,
+        email: typeof req.user?.email === "string" ? req.user.email : undefined,
+      })
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch current user";
+    return res.status(404).json({ message });
   }
 }

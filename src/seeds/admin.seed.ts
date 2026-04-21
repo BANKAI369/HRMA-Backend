@@ -1,12 +1,7 @@
 import { AppDataSource } from "../config/data-source";
+import bcrypt from "bcryptjs";
 import { User } from "../entities/User";
 import { Role } from "../entities/role";
-import {
-  createCognitoUser,
-  deleteCognitoUser,
-  getCognitoUserIdentity,
-  setCognitoUserPassword,
-} from "../services/cognito.service";
 
 export const seedAdmin = async () => {
   const userRepo = AppDataSource.getRepository(User);
@@ -36,27 +31,16 @@ export const seedAdmin = async () => {
     return;
   }
 
-  await createCognitoUser(adminEmail, adminRole.name, {
-    formattedName: adminUsername,
-    suppressMessage: true,
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  const adminUser = userRepo.create({
+    username: adminUsername,
+    email: adminEmail,
+    password: hashedPassword,
+    mustChangePassword: false,
+    isActive: true,
+    role: adminRole,
   });
-  const cognitoUser = await getCognitoUserIdentity(adminEmail);
 
-  try {
-    await setCognitoUserPassword(adminEmail, adminPassword);
-
-    const adminUser = userRepo.create({
-      username: adminUsername,
-      email: adminEmail,
-      cognitoUsername: cognitoUser.cognitoUsername,
-      cognitoSub: cognitoUser.cognitoSub,
-      isActive: true,
-      role: adminRole,
-    });
-
-    await userRepo.save(adminUser);
-  } catch (error) {
-    await deleteCognitoUser(cognitoUser.cognitoUsername).catch(() => undefined);
-    throw error;
-  }
+  await userRepo.save(adminUser);
 };

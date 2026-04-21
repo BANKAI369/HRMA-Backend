@@ -36,6 +36,13 @@ import { ShiftPolicy } from "../entities/ShiftPolicy";
 import { TrackingPolicy } from "../entities/TrackingPolicy";
 import { User } from "../entities/User";
 import { WeeklyOffPolicy } from "../entities/WeeklyOffPolicy";
+import { Client } from "../entities/Client";
+import { Project } from "../entities/Projects";
+import { ProjectPhase } from "../entities/ProjectPhase";
+import { TimeFrame } from "../entities/TimeFrame";
+import { Goal } from "../entities/Goal";
+import { Badge } from "../entities/Badge";
+import { Praise } from "../entities/Praise";
 
 dotenv.config();
 
@@ -83,6 +90,14 @@ export const AppDataSource = new DataSource({
     HolidayCalendar,
     TrackingPolicy,
     WeeklyOffPolicy,
+    ProjectPhase,
+    Client,
+    Project,
+    TimeFrame,
+    Goal,
+    Badge,
+    Praise,
+    AuditLog
   ],
   migrations: [join(__dirname, "../migrations/*.{ts,js}")],
 });

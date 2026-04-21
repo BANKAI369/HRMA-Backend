@@ -20,15 +20,5 @@ export const resolveRequestRole = (req: AuthRequest): Roles => {
     return directRole;
   }
 
-  const groups = Array.isArray(req.user?.["cognito:groups"])
-    ? req.user["cognito:groups"]
-    : [];
-
-  for (const role of [Roles.Admin, Roles.Manager, Roles.Employee]) {
-    if (groups.some((group) => normalizeRole(group) === role)) {
-      return role;
-    }
-  }
-
   return Roles.Employee;
 };
