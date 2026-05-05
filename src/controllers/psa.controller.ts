@@ -3,8 +3,9 @@ import { z } from "zod";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { ProjectStatus } from "../entities/Projects";
 import { PsaService } from "../services/psa.service";
+import { TaskStatus } from "../entities/ProjectTask";
 
-const service = new PsaService();
+const service: PsaService = new PsaService();
 
 const idParamSchema = z.object({
   id: z.string().min(1, "Invalid id"),
@@ -53,6 +54,34 @@ const createProjectPhaseSchema = z.object({
 const projectPhaseQuerySchema = z.object({
   projectId: z.string().min(1).optional(),
 });
+
+const projectIdParamSchema = z.object({
+  projectId: z.string().min(1, "Invalid projectId"),
+});
+
+const taskIdParamSchema = z.object({
+  taskId: z.string().min(1, "Invalid taskId"),
+});
+
+const createAllocationSchema = z.object({
+  userId: z.string().uuid("Valid userId is required"),
+  projectId: z.string().min(1, "Project id is required"),
+  allocationPercentage: z.coerce.number().int().min(0).max(100).optional(),
+  startDate: z.string().date().optional(),
+  endDate: z.string().date().optional(),
+});
+
+const createTaskSchema = z.object({
+  name: z.string().trim().min(1, "Task name is required"),
+  description: z.string().trim().optional(),
+  status: z.nativeEnum(TaskStatus).optional(),
+  projectId: z.string().min(1, "Project id is required"),
+});
+
+const updateTaskSchema = createTaskSchema.partial().refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "At least one field is required" }
+);
 
 const handleError = (res: Response, error: unknown, fallbackMessage: string) => {
   const message = error instanceof Error ? error.message : fallbackMessage;
@@ -232,5 +261,141 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
       .json(await service.updateProject(paramsParsed.data.id, bodyParsed.data));
   } catch (error) {
     return handleError(res, error, "Failed to update project");
+  }
+};
+export const getAllocations = async (_req: AuthRequest, res: Response) => {
+  try {
+    return res.status(200).json(await service.getProjectAllocations());
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch project allocations");
+  }
+};
+
+export const createAllocation = async (req: AuthRequest, res: Response) => {
+  const parsed = createAllocationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res.status(201).json(await service.createProjectAllocation(parsed.data));
+  } catch (error) {
+    return handleError(res, error, "Failed to create project allocation");
+  }
+};
+
+export const getTasks = async (req: AuthRequest, res: Response) => {
+  const parsed = projectIdParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res.status(200).json(await service.getProjectTasks(parsed.data.projectId));
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch project tasks");
+  }
+};
+
+export const createTask = async (req: AuthRequest, res: Response) => {
+  const parsed = createTaskSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res.status(201).json(await service.createProjectTask(parsed.data));
+  } catch (error) {
+    return handleError(res, error, "Failed to create project task");
+  }
+};
+
+export const updateTask = async (req: AuthRequest, res: Response) => {
+  const paramsParsed = idParamSchema.safeParse(req.params);
+  const bodyParsed = updateTaskSchema.safeParse(req.body);
+
+  if (!paramsParsed.success || !bodyParsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: {
+        ...(paramsParsed.success ? {} : paramsParsed.error.flatten().fieldErrors),
+        ...(bodyParsed.success ? {} : bodyParsed.error.flatten().fieldErrors),
+      },
+    });
+  }
+
+  try {
+    return res
+      .status(200)
+      .json(await service.updateProjectTask(paramsParsed.data.id, bodyParsed.data));
+  } catch (error) {
+    return handleError(res, error, "Failed to update project task");
+  }
+};
+
+export const getTaskAssignees = async (req: AuthRequest, res: Response) => {
+  const parsed = projectIdParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res.status(200).json(await service.getTaskAssignees(parsed.data.projectId));
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch project assignees");
+  }
+};
+
+export const getTimesheets = async (_req: AuthRequest, res: Response) => {
+  try {
+    return res.status(200).json(await service.getTimesheetEntries());
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch timesheet entries");
+  }
+};
+
+export const getProjectTimesheets = async (req: AuthRequest, res: Response) => {
+  const parsed = projectIdParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res
+      .status(200)
+      .json(await service.getProjectTimesheetEntries(parsed.data.projectId));
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch project timesheets");
+  }
+};
+
+export const getTaskTimesheets = async (req: AuthRequest, res: Response) => {
+  const parsed = taskIdParamSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({
+      message: "Invalid request",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    return res.status(200).json(await service.getTaskTimeEntries(parsed.data.taskId));
+  } catch (error) {
+    return handleError(res, error, "Failed to fetch task time entries");
   }
 };

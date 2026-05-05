@@ -2,10 +2,18 @@ import { AppDataSource } from "../config/data-source";
 import { Client } from "../entities/Client";
 import { Project, ProjectStatus } from "../entities/Projects";
 import { ProjectPhase } from "../entities/ProjectPhase";
+import { ProjectTask, TaskStatus } from "../entities/ProjectTask";
+import { ProjectAllocations } from "../entities/ProjectAllocation";
+import { TimeSheetEntry } from "../entities/TimeSheetEntry";
+import { User } from "../entities/User";
 
 const clientRepo = AppDataSource.getRepository(Client);
 const projectRepo = AppDataSource.getRepository(Project);
 const projectPhaseRepo = AppDataSource.getRepository(ProjectPhase);
+const projectAllocationRepo = AppDataSource.getRepository(ProjectAllocations);
+const projectTaskRepository = AppDataSource.getRepository(ProjectTask);
+const timesheetRepository = AppDataSource.getRepository(TimeSheetEntry);
+const userRepo = AppDataSource.getRepository(User);
 
 export type CreateClientInput = {
   name: string;
@@ -39,6 +47,23 @@ export type CreateProjectPhaseInput = {
   isActive?: boolean;
   projectId: string;
 };
+
+export type CreateProjectAllocationInput = {
+  userId: string;
+  projectId: string;
+  allocationPercentage?: number;
+  startDate?: string;
+  endDate?: string;
+};
+
+export type CreateProjectTaskInput = {
+  name: string;
+  description?: string;
+  status?: TaskStatus;
+  projectId: string;
+};
+
+export type UpdateProjectTaskInput = Partial<CreateProjectTaskInput>;
 
 const BILLING_ROLES = [
   { id: "billable", name: "Billable" },
@@ -288,5 +313,146 @@ export class PsaService {
     });
 
     return projectPhaseRepo.save(phase);
+  }
+
+  async getProjectAllocations() {
+    return projectAllocationRepo.find({
+      relations: ["user", "project"],
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  async createProjectAllocation(input: CreateProjectAllocationInput) {
+    const project = await projectRepo.findOne({ where: { id: input.projectId } });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const user = await userRepo.findOne({ where: { id: input.userId } });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const allocation = projectAllocationRepo.create({
+      userId: user.id,
+      user,
+      projectId: project.id,
+      project,
+      allocationPercentage: input.allocationPercentage ?? 100,
+      startDate: input.startDate,
+      endDate: input.endDate,
+    });
+
+    return projectAllocationRepo.save(allocation);
+  }
+
+  async getProjectTasks(projectId: string) {
+    const project = await projectRepo.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    return projectTaskRepository.find({
+      where: { projectId },
+      relations: ["project"],
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  async createProjectTask(input: CreateProjectTaskInput) {
+    const project = await projectRepo.findOne({ where: { id: input.projectId } });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const task = projectTaskRepository.create({
+      name: input.name.trim(),
+      description: input.description?.trim() || undefined,
+      status: input.status,
+      projectId: project.id,
+      project,
+    });
+
+    return projectTaskRepository.save(task);
+  }
+
+  async updateProjectTask(id: string, input: UpdateProjectTaskInput) {
+    const task = await projectTaskRepository.findOne({
+      where: { id },
+      relations: ["project"],
+    });
+
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    if (input.projectId) {
+      const project = await projectRepo.findOne({ where: { id: input.projectId } });
+      if (!project) {
+        throw new Error("Project not found");
+      }
+      task.projectId = project.id;
+      task.project = project;
+    }
+
+    if (input.name) {
+      task.name = input.name.trim();
+    }
+
+    if (typeof input.description !== "undefined") {
+      task.description = input.description?.trim() || undefined;
+    }
+
+    if (typeof input.status !== "undefined") {
+      task.status = input.status;
+    }
+
+    return projectTaskRepository.save(task);
+  }
+
+  async getTaskAssignees(projectId: string) {
+    const project = await projectRepo.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    return projectAllocationRepo.find({
+      where: { projectId },
+      relations: ["user", "project"],
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  async getTimesheetEntries() {
+    return timesheetRepository.find({
+      relations: ["user", "project", "task"],
+      order: { date: "DESC", createdAt: "DESC" },
+    });
+  }
+
+  async getProjectTimesheetEntries(projectId: string) {
+    const project = await projectRepo.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    return timesheetRepository.find({
+      where: { projectId },
+      relations: ["user", "project", "task"],
+      order: { date: "DESC", createdAt: "DESC" },
+    });
+  }
+
+  async getTaskTimeEntries(taskId: string) {
+    const task = await projectTaskRepository.findOne({ where: { id: taskId } });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    return timesheetRepository.find({
+      where: { taskId },
+      relations: ["user", "project", "task"],
+      order: { date: "DESC", createdAt: "DESC" },
+    });
   }
 }

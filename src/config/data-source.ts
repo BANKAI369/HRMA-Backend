@@ -43,6 +43,9 @@ import { TimeFrame } from "../entities/TimeFrame";
 import { Goal } from "../entities/Goal";
 import { Badge } from "../entities/Badge";
 import { Praise } from "../entities/Praise";
+import { ProjectAllocations } from "../entities/ProjectAllocation";
+import { ProjectTask } from "../entities/ProjectTask";
+import { TimeSheetEntry } from "../entities/TimeSheetEntry";
 
 dotenv.config();
 
@@ -97,7 +100,10 @@ export const AppDataSource = new DataSource({
     Goal,
     Badge,
     Praise,
-    AuditLog
+    AuditLog,
+    ProjectAllocations,
+    ProjectTask,
+    TimeSheetEntry, 
   ],
   migrations: [join(__dirname, "../migrations/*.{ts,js}")],
 });

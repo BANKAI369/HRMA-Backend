@@ -9,6 +9,11 @@ const PORT = Number(process.env.PORT) || 4000;
 
 AppDataSource.initialize()
   .then(() => {
-    app.listen(PORT);
+    app.listen(PORT, () => {
+      console.log(`Backend listening on port ${PORT}`);
+    });
   })
-  .catch(() => undefined);
+  .catch((error) => {
+    console.error("Failed to initialize backend", error);
+    process.exit(1);
+  });
