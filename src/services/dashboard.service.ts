@@ -17,13 +17,12 @@ export class DashboardService {
   async getMetrics(
     role: string,
     userEmail?: string,
-    cognitoSub?: string,
     userId?: string
   ) {
     const isAdmin = role.toLowerCase() === "admin";
     const scope = isAdmin
       ? {}
-      : await this.resolveUserScope(userEmail, cognitoSub, userId);
+      : await this.resolveUserScope(userEmail, userId);
 
     const topDepartmentsQuery = departmentRepo
       .createQueryBuilder("department")
@@ -138,16 +137,13 @@ export class DashboardService {
 
   private async resolveUserScope(
     userEmail?: string,
-    cognitoSub?: string,
     userId?: string
   ): Promise<DashboardUserScope> {
     const currentUserQuery = userRepo
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.department", "department");
 
-    if (cognitoSub) {
-      currentUserQuery.where("user.cognitoSub = :cognitoSub", { cognitoSub });
-    } else if (userEmail && userId) {
+    if (userEmail && userId) {
       currentUserQuery
         .where("user.email = :userEmail", { userEmail })
         .orWhere("user.id = :userId", { userId });

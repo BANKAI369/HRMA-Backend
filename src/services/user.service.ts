@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import bcrypt from "bcryptjs";
 import { Department } from "../entities/Department";
 import { EmployeeProfile } from "../entities/EmployeeProfile";
 import { JobTitle } from "../entities/JobTitle";
@@ -18,8 +19,7 @@ type NullableId = string | null | undefined;
 type CreateUserInput = {
   username: string;
   email: string;
-  cognitoUsername?: string | null;
-  cognitoSub?: string | null;
+  password?: string;
   roleName?: Roles;
   departmentId?: string | null;
   jobTitleId?: string | null;
@@ -112,6 +112,12 @@ export class UserService {
   async create(data: CreateUserInput, options: AuditOptions = {}) {
     const normalizedUsername = data.username.trim();
     const normalizedEmail = data.email.trim().toLowerCase();
+    const temporaryPassword =
+      data.password?.trim() ||
+      `HRMA${Math.random().toString(36).slice(2, 6)}${Date.now()
+        .toString()
+        .slice(-4)}`;
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
     const existing = await userRepo.findOne({
       where: [{ email: normalizedEmail }, { username: normalizedUsername }],
@@ -130,8 +136,8 @@ export class UserService {
       const user = manager.create(User, {
         username: normalizedUsername,
         email: normalizedEmail,
-        cognitoUsername: data.cognitoUsername?.trim() || null,
-        cognitoSub: data.cognitoSub?.trim() || null,
+        password: hashedPassword,
+        mustChangePassword: !data.password,
         isActive: data.isActive ?? true,
         role: roleEntity,
         roleId: roleEntity.id,
@@ -210,10 +216,15 @@ export class UserService {
   async update(id: string, data: UpdateUserInput) {
     const user = await this.findOne(id);
 
-    const { password: _password, jobTitleId, ...persistedData } = data;
+    const { password, jobTitleId, ...persistedData } = data;
     const jobTitle = await resolveJobTitle(jobTitleId);
 
     userRepo.merge(user, persistedData);
+
+    if (typeof password === "string" && password.trim()) {
+      user.password = await bcrypt.hash(password.trim(), 10);
+      user.mustChangePassword = false;
+    }
 
     await AppDataSource.transaction(async (manager) => {
       await manager.save(User, user);

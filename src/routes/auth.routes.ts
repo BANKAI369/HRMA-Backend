@@ -1,10 +1,19 @@
 import { Router } from "express";
-import { signUp, syncProfile } from "../controllers/auth.controller";
+import {
+  getCurrentAuthUser,
+  login,
+  register,
+  resetPassword,
+} from "../controllers/auth.controller";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.post("/signup", signUp);
-router.post("/sync", authenticate, syncProfile);
+router.post("/register", register);
+router.post("/signup", register);
+router.post("/login", login);
+router.post("/reset-password", resetPassword);
+router.get("/me", authenticate, getCurrentAuthUser);
+router.post("/sync", authenticate, getCurrentAuthUser);
 
 export default router;
