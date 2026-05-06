@@ -141,6 +141,7 @@ export class UserService {
         isActive: data.isActive ?? true,
         role: roleEntity,
         roleId: roleEntity.id,
+        roles: [roleEntity],
         department: department ?? null,
         departmentId: department?.id ?? null,
       });
@@ -196,14 +197,14 @@ export class UserService {
 
   async findAll() {
     return userRepo.find({
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
   }
 
   async findOne(id: string) {
     const user = await userRepo.findOne({
       where: { id },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user) {
@@ -256,6 +257,7 @@ export class UserService {
     user.isActive = false;
     user.role = null;
     user.roleId = null;
+    user.roles = [];
     user.department = null;
     user.departmentId = null;
     await userRepo.save(user);

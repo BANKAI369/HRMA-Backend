@@ -20,6 +20,10 @@ const sanitizeUser = (user: User) => ({
         name: user.role.name,
       }
     : null,
+  roles: (user.roles ?? []).map((role) => ({
+    id: role.id,
+    name: role.name,
+  })),
   department: user.department
     ? {
         id: user.department.id,
@@ -76,12 +80,13 @@ export class AuthService {
         isActive: true,
         role,
         roleId: role.id,
+        roles: [role],
       })
     );
 
     const fullUser = await userRepo.findOneOrFail({
       where: { id: user.id },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     return {
@@ -95,7 +100,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await userRepo.findOne({
       where: { email: normalizedEmail },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user) {
@@ -122,7 +127,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await userRepo.findOne({
       where: { email: normalizedEmail },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user) {
@@ -146,7 +151,7 @@ export class AuthService {
         identity.id ? { id: identity.id } : undefined,
         identity.email ? { email: identity.email.toLowerCase() } : undefined,
       ].filter(Boolean) as Array<{ id?: string; email?: string }>,
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user) {
@@ -179,12 +184,13 @@ export class AuthService {
         mustChangePassword: !data.password,
         isActive: true,
         role,
+        roles: [role],
       })
     );
 
     const fullUser = await userRepo.findOneOrFail({
       where: { id: user.id },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     return {

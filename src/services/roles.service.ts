@@ -44,7 +44,7 @@ export async function deleteRole(id: string) {
 export async function assignRoleToUser(userId: string, roleName: string) {
   const user = await userRepository.findOne({
     where: { id: userId },
-    relations: ["role"],
+    relations: ["role", "roles"],
   });
 
   if (!user) {
@@ -59,11 +59,22 @@ export async function assignRoleToUser(userId: string, roleName: string) {
     throw new Error("Role not found");
   }
 
-  if (user.role?.id === role.id) {
+  const assignedRoleIds = new Set([
+    ...(user.role ? [user.role.id] : []),
+    ...(user.roles ?? []).map((assignedRole) => assignedRole.id),
+  ]);
+
+  if (assignedRoleIds.has(role.id)) {
     throw new Error("User already has this role");
   }
 
-  user.role = role;
+  user.roles = [...(user.roles ?? []), role];
+
+  if (!user.role) {
+    user.role = role;
+    user.roleId = role.id;
+  }
+
   return userRepository.save(user);
 }
 

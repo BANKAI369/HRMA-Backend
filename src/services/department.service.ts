@@ -35,6 +35,20 @@ export class DepartmentService {
     };
   }
 
+  private serializeRoles(user: User) {
+    const primaryRole = user.role ? [user.role] : [];
+    const roles = [...primaryRole, ...(user.roles ?? [])];
+    const uniqueRoles = roles.filter(
+      (role, index, allRoles) =>
+        index === allRoles.findIndex((candidate) => candidate.id === role.id)
+    );
+
+    return uniqueRoles.map((role) => ({
+      id: role.id,
+      name: role.name,
+    }));
+  }
+
   private serializeManager(user: User | null) {
     if (!user) {
       return null;
@@ -50,12 +64,20 @@ export class DepartmentService {
             name: user.role.name,
           }
         : null,
+      roles: this.serializeRoles(user),
       isActive: user.isActive,
     };
   }
 
   private isManager(user: User | null) {
-    return user?.role?.name?.toLowerCase() === Roles.Manager.toLowerCase();
+    const roleNames = [
+      user?.role?.name,
+      ...(user?.roles?.map((role) => role.name) ?? []),
+    ]
+      .filter((name): name is string => Boolean(name))
+      .map((name) => name.toLowerCase());
+
+    return roleNames.includes(Roles.Manager.toLowerCase());
   }
 
   private async ensureDepartmentManagerSlot(
@@ -65,8 +87,9 @@ export class DepartmentService {
     const existingManager = await userRepo
       .createQueryBuilder("user")
       .leftJoin("user.role", "role")
+      .leftJoin("user.roles", "extraRole")
       .where("user.departmentId = :departmentId", { departmentId })
-      .andWhere("LOWER(role.name) = :roleName", {
+      .andWhere("(LOWER(role.name) = :roleName OR LOWER(extraRole.name) = :roleName)", {
         roleName: Roles.Manager.toLowerCase(),
       })
       .andWhere(currentUserId ? "user.id != :currentUserId" : "1 = 1", {
@@ -115,7 +138,7 @@ export class DepartmentService {
 
     const user = await userRepo.findOne({
       where: { id: userId },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
     if (!user) {
       throw new Error("User not found");
@@ -165,7 +188,7 @@ export class DepartmentService {
   ) {
     const user = await userRepo.findOne({
       where: { id: userId },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
     if (!user) {
       throw new Error("User Not Found");
@@ -216,7 +239,7 @@ export class DepartmentService {
   async getDepartmentById(id: string) {
     const department = await departmentRepo.findOne({
       where: { id },
-      relations: ["employees", "employees.role"],
+      relations: ["employees", "employees.role", "employees.roles"],
     });
     if (!department) {
       throw new Error("Department not found");
@@ -289,7 +312,7 @@ export class DepartmentService {
 
   async listDepartments() {
     const departments = await departmentRepo.find({
-      relations: ["employees", "employees.role"],
+      relations: ["employees", "employees.role", "employees.roles"],
     });
 
     return departments.map((department) => this.withDerivedManager(department));

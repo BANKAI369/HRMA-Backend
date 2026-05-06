@@ -2,16 +2,14 @@ import { Response, NextFunction } from "express";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../entities/User";
 import { AuthRequest } from "./auth.middleware";
-import { resolveRequestRole } from "../utils/role.utils";
+import { hasRequestRole } from "../utils/role.utils";
 
 export function authorizeRoles(...allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const normalizedAllowedRoles = allowedRoles.map((r) => r.toLowerCase());
-    const resolvedRole = resolveRequestRole(req).toLowerCase();
-    const hasRole = normalizedAllowedRoles.includes(resolvedRole);
+    const hasRole = hasRequestRole(req, allowedRoles);
 
     if (!hasRole) {
       return res.status(403).json({ message: "Forbidden" });
@@ -42,7 +40,7 @@ const loadCurrentUserWithPermissions = async (req: AuthRequest) => {
       id?: string;
       email?: string;
     }>,
-    relations: ["role", "role.permissions"],
+    relations: ["role", "role.permissions", "roles", "roles.permissions"],
   });
 };
 
@@ -63,16 +61,28 @@ export function authorizePermissions(...requiredPermissions: string[]) {
     try {
       const currentUser = await loadCurrentUserWithPermissions(req);
 
-      if (!currentUser?.isActive || !currentUser.role) {
+      if (!currentUser?.isActive) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const permissionNames = (currentUser.role.permissions ?? [])
-        .map((permission) => permission.name?.trim().toLowerCase())
-        .filter((permission): permission is string => Boolean(permission));
+      const assignedRoles = [
+        ...(currentUser.role ? [currentUser.role] : []),
+        ...(currentUser.roles ?? []),
+      ];
+
+      if (!assignedRoles.length) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const permissionNames = new Set(
+        assignedRoles
+          .flatMap((role) => role.permissions ?? [])
+          .map((permission) => permission.name?.trim().toLowerCase())
+          .filter((permission): permission is string => Boolean(permission))
+      );
 
       const hasPermission = normalizedRequiredPermissions.every((permission) =>
-        permissionNames.includes(permission)
+        permissionNames.has(permission)
       );
 
       if (!hasPermission) {

@@ -45,6 +45,9 @@ const idParamSchema = z.object({
 const serializeRole = (role: Role | null) =>
   role ? { id: role.id, name: role.name } : null;
 
+const serializeRoles = (roles: Role[] | null | undefined) =>
+  (roles ?? []).map((role) => ({ id: role.id, name: role.name }));
+
 const serializeDepartment = (department: Department | null) =>
   department ? { id: department.id, name: department.name } : null;
 
@@ -61,6 +64,7 @@ const serializeUserManagementResponse = (
   isActive: user.isActive,
   mustChangePassword: user.mustChangePassword,
   role: serializeRole(user.role ?? null),
+  roles: serializeRoles(user.roles),
   department: serializeDepartment(user.department ?? null),
   jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
   createdAt: user.createdAt?.toISOString?.(),
@@ -87,7 +91,7 @@ const loadSerializedUserById = async (userId: string) => {
 
   const user = await userRepo.findOne({
     where: { id: userId },
-    relations: ["role", "department"],
+    relations: ["role", "roles", "department"],
   });
 
   if (!user) {
@@ -123,6 +127,7 @@ const buildUserSearchText = (
     user.username,
     user.email,
     user.role?.name,
+    ...(user.roles ?? []).map((role) => role.name),
     user.department?.name,
     user.jobTitle?.name,
   ]
@@ -136,8 +141,9 @@ const isSoftDeletedUser = (
     | {
         isActive?: boolean;
         role?: Role | { name?: string } | null;
+        roles?: Array<{ name?: string }> | null;
       }
-) => !user.isActive && !user.role;
+) => !user.isActive && !user.role && !(user.roles?.length ?? 0);
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -218,7 +224,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
     const userRepo = AppDataSource.getRepository(User);
     const users = (
       await userRepo.find({
-        relations: ["role", "department"],
+        relations: ["role", "roles", "department"],
       })
     ).filter((user) => !isSoftDeletedUser(user));
 
@@ -264,7 +270,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
 
 export async function getCurrentUser(req: AuthRequest, res: Response) {
   try {
-    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "roles", "department"]);
 
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
@@ -287,7 +293,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
 export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "roles", "department"]);
     const requesterId = req.user?.id ?? null;
     const requesterEmail = req.user?.email || null;
 
@@ -308,7 +314,7 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
     const users = (
       await userRepo.find({
         where: { departmentId: currentUser.department.id },
-        relations: ["department", "role"],
+        relations: ["department", "role", "roles"],
       })
     ).filter((user) => {
       if (requesterEmail && user.email === requesterEmail) {
@@ -408,7 +414,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
     const user = await userRepo.findOne({
       where: { id: paramsParsed.data.id },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user) {
@@ -487,6 +493,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
       user.role = roleEntity;
       user.roleId = roleEntity.id;
+      user.roles = [roleEntity];
     }
 
     if (typeof isActive === "boolean") {
