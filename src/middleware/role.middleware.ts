@@ -2,13 +2,19 @@ import { Response, NextFunction } from "express";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../entities/User";
 import { AuthRequest } from "./auth.middleware";
-import { hasRequestRole } from "../utils/role.utils";
+import { Roles } from "../utils/roles.enum";
+import { hasRequestRole, normalizeRole, isSuperAdminRole } from "../utils/role.utils";
 
 export function authorizeRoles(...allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(403).json({ message: "Forbidden" });
     }
+
+    if (isSuperAdminRole(req.user.role)) {
+      return next();
+    }
+
     const hasRole = hasRequestRole(req, allowedRoles);
 
     if (!hasRole) {
@@ -63,6 +69,15 @@ export function authorizePermissions(...requiredPermissions: string[]) {
 
       if (!currentUser?.isActive) {
         return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const currentRoles = [
+        currentUser.role?.name,
+        ...(currentUser.roles ?? []).map((role) => role.name),
+      ];
+
+      if (currentRoles.some((role) => normalizeRole(role) === Roles.SuperAdmin)) {
+        return next();
       }
 
       const assignedRoles = [

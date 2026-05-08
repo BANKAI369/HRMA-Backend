@@ -1,7 +1,7 @@
 import { AuthRequest } from "../middleware/auth.middleware";
 import { Roles } from "./roles.enum";
 
-const ROLE_PRIORITY = [Roles.Admin, Roles.Manager, Roles.Employee];
+const ROLE_PRIORITY = [Roles.SuperAdmin, Roles.Admin, Roles.Manager, Roles.Employee];
 
 export const normalizeRole = (value: unknown): Roles | null => {
   if (typeof value !== "string") {
@@ -15,6 +15,9 @@ export const normalizeRole = (value: unknown): Roles | null => {
     ) || null
   );
 };
+
+export const isSuperAdminRole = (value: unknown) =>
+  normalizeRole(value) === Roles.SuperAdmin;
 
 export const resolveRequestRoles = (req: AuthRequest): Roles[] => {
   const tokenRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];

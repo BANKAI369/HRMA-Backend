@@ -11,7 +11,7 @@ export async function getDashboardMetrics(req: AuthRequest, res: Response) {
     const role = resolveRequestRole(req);
     const userId = req.user?.id || undefined;
     const userEmail = req.user?.email || null;
-    const isAdmin = role === Roles.Admin;
+    const isAdmin = role === Roles.Admin || role === Roles.SuperAdmin;
 
     if (!role) {
       return res.status(403).json({ message: "Forbidden" });

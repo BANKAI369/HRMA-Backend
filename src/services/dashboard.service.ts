@@ -29,7 +29,8 @@ export class DashboardService {
     userEmail?: string,
     userId?: string
   ) {
-    const isAdmin = role.toLowerCase() === "admin";
+    const normalizedRole = role.toLowerCase();
+    const isAdmin = normalizedRole === "admin" || normalizedRole === "superadmin";
     const scope = isAdmin
       ? {}
       : await this.resolveUserScope(userEmail, userId);
