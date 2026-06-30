@@ -12,6 +12,12 @@ import dashboardRoutes from "./routes/dashboard.routes";
 import documentRoutes from "./routes/document.routes";
 import documentTypeRoutes from "./routes/document-type.routes";
 import exitRequestRoutes from "./routes/exit-request.routes";
+import leaveRoutes from "./routes/leave.routes";
+import leaveTypeRoutes from "./routes/leave-type.routes";
+import attendanceRoutes from "./routes/attendance.routes";
+import payrollRoutes from "./routes/payroll.routes";
+import psaRoutes from "./routes/psa.routes";
+import pmsRoutes from "./routes/pms.routes";
 
 
 const app = express();
@@ -30,6 +36,13 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/document-types", documentTypeRoutes);
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/leave-types", leaveTypeRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/payroll", payrollRoutes);
+app.use("/api/psa", psaRoutes);
+app.use("/api/pms", pmsRoutes);
+
 
 app.use(errorHandler);
 

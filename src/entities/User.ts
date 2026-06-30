@@ -11,11 +11,11 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: "varchar", nullable: true, unique: true })
-  cognitoUsername: string | null;
+  @Column({ type: "varchar" })
+  password: string;
 
-  @Column({ type: "varchar", nullable: true, unique: true })
-  cognitoSub: string | null;
+  @Column({ default: false })
+  mustChangePassword: boolean;
 
   @Column({ default: true })
   isActive: boolean;

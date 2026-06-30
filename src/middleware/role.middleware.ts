@@ -29,10 +29,8 @@ const loadCurrentUserWithPermissions = async (req: AuthRequest) => {
     typeof req.user?.email === "string"
       ? req.user.email.trim().toLowerCase()
       : undefined;
-  const cognitoSub =
-    typeof req.user?.sub === "string" ? req.user.sub.trim() : undefined;
 
-  if (!userId && !userEmail && !cognitoSub) {
+  if (!userId && !userEmail) {
     return null;
   }
 
@@ -40,11 +38,9 @@ const loadCurrentUserWithPermissions = async (req: AuthRequest) => {
     where: [
       userId ? { id: userId } : undefined,
       userEmail ? { email: userEmail } : undefined,
-      cognitoSub ? { cognitoSub } : undefined,
     ].filter(Boolean) as Array<{
       id?: string;
       email?: string;
-      cognitoSub?: string;
     }>,
     relations: ["role", "role.permissions"],
   });
