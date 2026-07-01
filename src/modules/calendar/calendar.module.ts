@@ -7,6 +7,6 @@ import { AttendanceService } from "../../services/attendance.service";
 
 @Module({
   controllers: [CalendarController],
-  providers: [CalendarService, HolidayService, LeaveService, AttendanceService],
+  providers: [CalendarService, HolidayService, LeaveService, AttendanceService],git 
 })
 export class CalendarModule {}
