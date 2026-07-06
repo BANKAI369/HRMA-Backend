@@ -1,5 +1,5 @@
 import { IsDateString, IsEnum, IsOptional, IsString } from "class-validator";
-import { LeaveStatus } from "../../enum/leaveStatus.enum";
+import { LeaveStatus } from "../../../utils/leave-status.enum";
 
 /**
  * CREATE DTO

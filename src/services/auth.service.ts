@@ -52,6 +52,8 @@ export class AuthService {
     email: string;
     password: string;
     roleName?: Roles;
+    companyName?: string;
+    onboardingType?: "trial" | "demo";
   }) {
     const username = data.username.trim();
     const email = data.email.trim().toLowerCase();
