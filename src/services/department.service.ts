@@ -18,10 +18,35 @@ export class DepartmentService {
     };
   }
 
+  private serializeDepartment(department: Department | null) {
+    if (!department) {
+      return null;
+    }
+
+    return {
+      id: department.id,
+      name: department.name,
+    };
+  }
+
   private buildUserDepartmentAuditSnapshot(user: User) {
     return {
       department: this.serializeDepartment(user.department ?? null),
     };
+  }
+
+  private serializeRoles(user: User) {
+    const primaryRole = user.role ? [user.role] : [];
+    const roles = [...primaryRole, ...(user.roles ?? [])];
+    const uniqueRoles = roles.filter(
+      (role, index, allRoles) =>
+        index === allRoles.findIndex((candidate) => candidate.id === role.id)
+    );
+
+    return uniqueRoles.map((role) => ({
+      id: role.id,
+      name: role.name,
+    }));
   }
 
   private serializeManager(user: User | null) {
@@ -39,23 +64,20 @@ export class DepartmentService {
             name: user.role.name,
           }
         : null,
+      roles: this.serializeRoles(user),
       isActive: user.isActive,
     };
   }
 
   private isManager(user: User | null) {
-    return user?.role?.name?.toLowerCase() === Roles.Manager.toLowerCase();
-  }
+    const roleNames = [
+      user?.role?.name,
+      ...(user?.roles?.map((role) => role.name) ?? []),
+    ]
+      .filter((name): name is string => Boolean(name))
+      .map((name) => name.toLowerCase());
 
-  private serializeDepartment(department: Department | null) {
-    if (!department) {
-      return null;
-    }
-
-    return {
-      id: department.id,
-      name: department.name,
-    };
+    return roleNames.includes(Roles.Manager.toLowerCase());
   }
 
   private async ensureDepartmentManagerSlot(
@@ -65,8 +87,9 @@ export class DepartmentService {
     const existingManager = await userRepo
       .createQueryBuilder("user")
       .leftJoin("user.role", "role")
+      .leftJoin("user.roles", "extraRole")
       .where("user.departmentId = :departmentId", { departmentId })
-      .andWhere("LOWER(role.name) = :roleName", {
+      .andWhere("(LOWER(role.name) = :roleName OR LOWER(extraRole.name) = :roleName)", {
         roleName: Roles.Manager.toLowerCase(),
       })
       .andWhere(currentUserId ? "user.id != :currentUserId" : "1 = 1", {
@@ -94,7 +117,9 @@ export class DepartmentService {
 
   async createDepartment(name: string) {
     const existing = await departmentRepo.findOne({ where: { name } });
-    if (existing) throw new Error("Department already exists");
+    if (existing) {
+      throw new Error("Department already exists");
+    }
 
     const department = departmentRepo.create({ name });
     return await departmentRepo.save(department);
@@ -107,13 +132,17 @@ export class DepartmentService {
   ) {
     const department = await departmentRepo.findOne({ where: { id: departmentId } });
 
-    if (!department) throw new Error("Department not found");
+    if (!department) {
+      throw new Error("Department not found");
+    }
 
     const user = await userRepo.findOne({
       where: { id: userId },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      throw new Error("User not found");
+    }
 
     if (!this.isManager(user)) {
       throw new Error("User must have Manager role");
@@ -156,17 +185,21 @@ export class DepartmentService {
     userId: string,
     departmentId: string,
     options: AuditOptions = {}
-  ){
+  ) {
     const user = await userRepo.findOne({
       where: { id: userId },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
-    if(!user) throw new Error("User Not Found");
-    
+    if (!user) {
+      throw new Error("User Not Found");
+    }
+
     const department = await departmentRepo.findOne({
       where: { id: departmentId },
     });
-    if(!department) throw new Error("Department Not Found");
+    if (!department) {
+      throw new Error("Department Not Found");
+    }
 
     if (this.isManager(user)) {
       await this.ensureDepartmentManagerSlot(departmentId, user.id);
@@ -203,12 +236,15 @@ export class DepartmentService {
     return user;
   }
 
-  async getDepartmentById(id: string){
+  async getDepartmentById(id: string) {
     const department = await departmentRepo.findOne({
-        where: { id },
-        relations: ["employees", "employees.role"],
+      where: { id },
+      relations: ["employees", "employees.role", "employees.roles"],
     });
-    if(!department) throw new Error("Department not found");
+    if (!department) {
+      throw new Error("Department not found");
+    }
+
     return this.withDerivedManager(department);
   }
 
@@ -216,11 +252,13 @@ export class DepartmentService {
     id: string,
     name: string,
     options: AuditOptions = {}
-  ){
+  ) {
     const department = await departmentRepo.findOne({
-        where: { id },
+      where: { id },
     });
-    if(!department) throw new Error("Department not Found");
+    if (!department) {
+      throw new Error("Department not Found");
+    }
 
     const previousDepartmentSnapshot = this.buildDepartmentAuditSnapshot(department);
     department.name = name.trim();
@@ -251,17 +289,20 @@ export class DepartmentService {
     return department;
   }
 
-  async deleteDepartment(id: string){
+  async deleteDepartment(id: string) {
     const department = await departmentRepo.findOne({
-        where: {id},
-        relations: ["employees"],
+      where: { id },
+      relations: ["employees"],
     });
 
-    if(!department) throw new Error("Department not Found");
+    if (!department) {
+      throw new Error("Department not Found");
+    }
 
-    for (const user of department.employees){
-        user.department = null as any;
-        await userRepo.save(user);
+    for (const user of department.employees) {
+      user.department = null;
+      user.departmentId = null;
+      await userRepo.save(user);
     }
 
     await departmentRepo.remove(department);
@@ -271,7 +312,7 @@ export class DepartmentService {
 
   async listDepartments() {
     const departments = await departmentRepo.find({
-      relations: ["employees", "employees.role"],
+      relations: ["employees", "employees.role", "employees.roles"],
     });
 
     return departments.map((department) => this.withDerivedManager(department));

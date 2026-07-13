@@ -14,16 +14,26 @@ type DashboardUserScope = {
 };
 
 export class DashboardService {
+  private buildScopedRoleCountQuery(scope: DashboardUserScope, roleName: string) {
+    return this.buildScopedUserQuery(scope)
+      .leftJoin("user.role", "role")
+      .leftJoin("user.roles", "extraRole")
+      .andWhere(
+        "(LOWER(role.name) = :roleName OR LOWER(extraRole.name) = :roleName)",
+        { roleName }
+      );
+  }
+
   async getMetrics(
     role: string,
     userEmail?: string,
-    cognitoSub?: string,
     userId?: string
   ) {
-    const isAdmin = role.toLowerCase() === "admin";
+    const normalizedRole = role.toLowerCase();
+    const isAdmin = normalizedRole === "admin" || normalizedRole === "superadmin";
     const scope = isAdmin
       ? {}
-      : await this.resolveUserScope(userEmail, cognitoSub, userId);
+      : await this.resolveUserScope(userEmail, userId);
 
     const topDepartmentsQuery = departmentRepo
       .createQueryBuilder("department")
@@ -37,8 +47,11 @@ export class DashboardService {
             .select("manager.username")
             .from(User, "manager")
             .leftJoin("manager.role", "managerRole")
+            .leftJoin("manager.roles", "managerExtraRole")
             .where("manager.departmentId = department.id")
-            .andWhere("LOWER(managerRole.name) = :managerRoleName")
+            .andWhere(
+              "(LOWER(managerRole.name) = :managerRoleName OR LOWER(managerExtraRole.name) = :managerRoleName)"
+            )
             .limit(1),
         "manager"
       )
@@ -66,15 +79,13 @@ export class DashboardService {
       departmentCount,
       topDepartments,
     ] = await Promise.all([
-      this.buildScopedUserQuery(scope)
-        .leftJoin("user.role", "role")
-        .andWhere("LOWER(role.name) = :roleName", { roleName: "employee" })
-        .getCount(),
+      this.buildScopedRoleCountQuery(scope, "employee")
+        .select("COUNT(DISTINCT user.id)", "count")
+        .getRawOne<{ count: string }>(),
 
-      this.buildScopedUserQuery(scope)
-        .leftJoin("user.role", "role")
-        .andWhere("LOWER(role.name) = :roleName", { roleName: "manager" })
-        .getCount(),
+      this.buildScopedRoleCountQuery(scope, "manager")
+        .select("COUNT(DISTINCT user.id)", "count")
+        .getRawOne<{ count: string }>(),
 
       this.buildScopedUserQuery(scope).getCount(),
 
@@ -98,6 +109,7 @@ export class DashboardService {
 
       this.buildScopedUserQuery(scope)
         .leftJoinAndSelect("user.role", "role")
+        .leftJoinAndSelect("user.roles", "roles")
         .leftJoinAndSelect("user.department", "department")
         .andWhere("user.createdAt IS NOT NULL")
         .orderBy("user.createdAt", "DESC")
@@ -117,12 +129,12 @@ export class DashboardService {
     ]);
 
     return {
-      employeeCount,
-      managerCount,
       departmentCount,
       totalUsers,
       activeUsers,
       inactiveUsers,
+      employeeCount: Number(employeeCount?.count || 0),
+      managerCount: Number(managerCount?.count || 0),
       jobTitleCount: Number(jobTitleCount?.count || 0),
       locationCount: Number(locationCount?.count || 0),
       currentDepartment: scope.departmentName || null,
@@ -138,16 +150,13 @@ export class DashboardService {
 
   private async resolveUserScope(
     userEmail?: string,
-    cognitoSub?: string,
     userId?: string
   ): Promise<DashboardUserScope> {
     const currentUserQuery = userRepo
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.department", "department");
 
-    if (cognitoSub) {
-      currentUserQuery.where("user.cognitoSub = :cognitoSub", { cognitoSub });
-    } else if (userEmail && userId) {
+    if (userEmail && userId) {
       currentUserQuery
         .where("user.email = :userEmail", { userEmail })
         .orWhere("user.id = :userId", { userId });

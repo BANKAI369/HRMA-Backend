@@ -6,17 +6,13 @@ const buildCurrentUserLookup = (req: AuthRequest) => {
   const userId = typeof req.user?.id === "string" ? req.user.id.trim() : "";
   const email =
     typeof req.user?.email === "string" ? req.user.email.trim().toLowerCase() : "";
-  const cognitoSub =
-    typeof req.user?.sub === "string" ? req.user.sub.trim() : "";
 
   return [
     userId ? { id: userId } : null,
     email ? { email } : null,
-    cognitoSub ? { cognitoSub } : null,
   ].filter(Boolean) as Array<{
     id?: string;
     email?: string;
-    cognitoSub?: string;
   }>;
 };
 

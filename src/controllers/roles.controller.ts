@@ -2,16 +2,17 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { AppDataSource } from "../config/data-source";
 import { Role } from "../entities/role";
+import { User } from "../entities/User";
 import { AuthRequest } from "../middleware/auth.middleware";
 import * as service from "../services/roles.service";
-
-const roleRepo = AppDataSource.getRepository(Role);
 
 const sendValidationError = (res: Response, error: z.ZodError) =>
   res.status(400).json({
     message: "Invalid request",
     errors: error.flatten().fieldErrors,
   });
+
+const roleRepo = AppDataSource.getRepository(Role);
 
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required"),
@@ -29,6 +30,14 @@ const assignPermissionsSchema = z.object({
 
 const updatePermissionsSchema = z.object({
   permissionIds: z.array(z.string().trim().min(1, "Permission id is required")),
+});
+
+const assignRoleSchema = z.object({
+  roleName: z.string().trim().min(1, "Role name is required"),
+});
+
+const assignRoleParamsSchema = z.object({
+  userId: z.string().min(1, "Invalid user id"),
 });
 
 export async function createRole(req: AuthRequest, res: Response) {
@@ -53,6 +62,34 @@ export const getRoles = async (req: Request, res: Response) => {
   });
 
   res.json(roles);
+};
+
+export async function assignRoleToUser(req: AuthRequest, res: Response) {
+  try {
+    const paramsParsed = assignRoleParamsSchema.safeParse(req.params);
+    if (!paramsParsed.success) {
+      return sendValidationError(res, paramsParsed.error);
+    }
+
+    const bodyParsed = assignRoleSchema.safeParse(req.body);
+    if (!bodyParsed.success) {
+      return sendValidationError(res, bodyParsed.error);
+    }
+
+    const updatedUser = await service.assignRoleToUser(
+      paramsParsed.data.userId,
+      bodyParsed.data.roleName
+    );
+
+    const user = await AppDataSource.getRepository(User).findOne({
+      where: { id: updatedUser.id },
+      relations: ["role", "roles", "department"],
+    });
+
+    res.status(200).json(user ?? updatedUser);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
 }
 
 export async function getRole(req: AuthRequest, res: Response) {

@@ -13,7 +13,8 @@ const normalizeRoleName = (roleName?: string | null) =>
 
 export const hasDocumentAdminAccess = (actor: User | null) =>
   Boolean(
-    actor?.isActive && DOCUMENT_ADMIN_ROLE_NAMES.has(normalizeRoleName(actor.role?.name))
+    actor?.isActive &&
+      DOCUMENT_ADMIN_ROLE_NAMES.has(normalizeRoleName(actor.role?.name))
   );
 
 export const isDocumentManager = (actor: User | null) =>
@@ -50,10 +51,8 @@ export const canAccessUserDocuments = async (
   return managedUserIds.includes(targetUserId);
 };
 
-export const canAccessDocument = async (
-  actor: User | null,
-  document: Document
-) => canAccessUserDocuments(actor, document.userId);
+export const canAccessDocument = async (actor: User | null, document: Document) =>
+  canAccessUserDocuments(actor, document.userId);
 
 export const canReviewDocuments = (actor: User | null) =>
   hasDocumentAdminAccess(actor);

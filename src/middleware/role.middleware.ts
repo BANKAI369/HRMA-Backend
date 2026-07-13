@@ -2,16 +2,20 @@ import { Response, NextFunction } from "express";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../entities/User";
 import { AuthRequest } from "./auth.middleware";
-import { resolveRequestRole } from "../utils/role.utils";
+import { Roles } from "../utils/roles.enum";
+import { hasRequestRole, normalizeRole, isSuperAdminRole } from "../utils/role.utils";
 
 export function authorizeRoles(...allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const normalizedAllowedRoles = allowedRoles.map((r) => r.toLowerCase());
-    const resolvedRole = resolveRequestRole(req).toLowerCase();
-    const hasRole = normalizedAllowedRoles.includes(resolvedRole);
+
+    if (isSuperAdminRole(req.user.role)) {
+      return next();
+    }
+
+    const hasRole = hasRequestRole(req, allowedRoles);
 
     if (!hasRole) {
       return res.status(403).json({ message: "Forbidden" });
@@ -29,10 +33,8 @@ const loadCurrentUserWithPermissions = async (req: AuthRequest) => {
     typeof req.user?.email === "string"
       ? req.user.email.trim().toLowerCase()
       : undefined;
-  const cognitoSub =
-    typeof req.user?.sub === "string" ? req.user.sub.trim() : undefined;
 
-  if (!userId && !userEmail && !cognitoSub) {
+  if (!userId && !userEmail) {
     return null;
   }
 
@@ -40,13 +42,11 @@ const loadCurrentUserWithPermissions = async (req: AuthRequest) => {
     where: [
       userId ? { id: userId } : undefined,
       userEmail ? { email: userEmail } : undefined,
-      cognitoSub ? { cognitoSub } : undefined,
     ].filter(Boolean) as Array<{
       id?: string;
       email?: string;
-      cognitoSub?: string;
     }>,
-    relations: ["role", "role.permissions"],
+    relations: ["role", "role.permissions", "roles", "roles.permissions"],
   });
 };
 
@@ -67,16 +67,37 @@ export function authorizePermissions(...requiredPermissions: string[]) {
     try {
       const currentUser = await loadCurrentUserWithPermissions(req);
 
-      if (!currentUser?.isActive || !currentUser.role) {
+      if (!currentUser?.isActive) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const permissionNames = (currentUser.role.permissions ?? [])
-        .map((permission) => permission.name?.trim().toLowerCase())
-        .filter((permission): permission is string => Boolean(permission));
+      const currentRoles = [
+        currentUser.role?.name,
+        ...(currentUser.roles ?? []).map((role) => role.name),
+      ];
+
+      if (currentRoles.some((role) => normalizeRole(role) === Roles.SuperAdmin)) {
+        return next();
+      }
+
+      const assignedRoles = [
+        ...(currentUser.role ? [currentUser.role] : []),
+        ...(currentUser.roles ?? []),
+      ];
+
+      if (!assignedRoles.length) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const permissionNames = new Set(
+        assignedRoles
+          .flatMap((role) => role.permissions ?? [])
+          .map((permission) => permission.name?.trim().toLowerCase())
+          .filter((permission): permission is string => Boolean(permission))
+      );
 
       const hasPermission = normalizedRequiredPermissions.every((permission) =>
-        permissionNames.includes(permission)
+        permissionNames.has(permission)
       );
 
       if (!hasPermission) {

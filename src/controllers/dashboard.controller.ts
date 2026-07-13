@@ -9,23 +9,21 @@ const dashboardService = new DashboardService();
 export async function getDashboardMetrics(req: AuthRequest, res: Response) {
   try {
     const role = resolveRequestRole(req);
-    const cognitoSub = req.user?.sub || undefined;
     const userId = req.user?.id || undefined;
     const userEmail = req.user?.email || null;
-    const isAdmin = role === Roles.Admin;
+    const isAdmin = role === Roles.Admin || role === Roles.SuperAdmin;
 
     if (!role) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    if (!isAdmin && !cognitoSub && !userEmail && !userId) {
+    if (!isAdmin && !userEmail && !userId) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
     const metrics = await dashboardService.getMetrics(
       role,
       userEmail || undefined,
-      cognitoSub,
       userId
     );
     res.status(200).json(metrics);

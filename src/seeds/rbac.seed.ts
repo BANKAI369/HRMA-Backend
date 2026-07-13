@@ -39,7 +39,7 @@ export const seedRBAC = async () => {
     permissionEntities.push(permission);
   }
 
-  const rolesList = ["Admin", "Manager", "Employee"];
+  const rolesList = ["Admin", "Manager", "Employee", "SuperAdmin"];
   const roleEntities: Record<string, Role> = {};
 
   for (const roleName of rolesList) {
@@ -62,10 +62,13 @@ export const seedRBAC = async () => {
   );
 
   roleEntities["Admin"].permissions = adminPermissions;
+  roleEntities["SuperAdmin"].permissions = adminPermissions;
   roleEntities["Manager"].permissions = managerPermissions;
   roleEntities["Employee"].permissions = employeePermissions;
 
   await roleRepo.save(roleEntities["Admin"]);
+  await roleRepo.save(roleEntities["SuperAdmin"]);
   await roleRepo.save(roleEntities["Manager"]);
   await roleRepo.save(roleEntities["Employee"]);
+  console.log("NEST access control seed completed");
 };

@@ -1,7 +1,15 @@
-import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  ManyToMany,
+  JoinTable,
+} from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Department } from "./Department";
 import { Role } from "./role";
+import { Tenant } from "./Tenant";
 
 @Entity("users")
 export class User extends BaseEntity {
@@ -11,14 +19,24 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: "varchar", nullable: true, unique: true })
-  cognitoUsername: string | null;
+  @Column({ type: "varchar" })
+  password: string;
 
-  @Column({ type: "varchar", nullable: true, unique: true })
-  cognitoSub: string | null;
+  @Column({ default: false })
+  mustChangePassword: boolean;
 
   @Column({ default: true })
   isActive: boolean;
+
+  @ManyToOne(() => Tenant, (tenant) => tenant.users, {
+    nullable: true,
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant | null;
+
+  @Column({ name: "tenant_id", type: "uuid", nullable: true })
+  tenantId: string | null;
 
   @ManyToOne(() => Department, (department) => department.employees, {
     nullable: true,
@@ -39,4 +57,18 @@ export class User extends BaseEntity {
 
   @Column({ name: "role_id", type: "uuid", nullable: true })
   roleId: string | null;
+
+  @ManyToMany(() => Role, (role) => role.users)
+  @JoinTable({
+    name: "user_roles",
+    joinColumn: {
+      name: "user_id",
+      referencedColumnName: "id",
+    },
+    inverseJoinColumn: {
+      name: "role_id",
+      referencedColumnName: "id",
+    },
+  })
+  roles: Role[];
 }

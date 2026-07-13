@@ -5,47 +5,15 @@ import { uploadDocument } from "../middleware/upload.middleware";
 
 const router = Router();
 
-router.post(
-  "/",
-  authenticate,
-  uploadDocument.single("file"),
-  documentController.uploadDocument
-);
+router.use(authenticate);
 
-router.get(
-  "/",
-  authenticate,
-  documentController.getAllDocuments
-);
-
-router.get(
-  "/my",
-  authenticate,
-  documentController.getMyDocuments
-);
-
-router.get(
-  "/user/:userId",
-  authenticate,
-  documentController.getDocumentsByUserId
-);
-
-router.get(
-  "/:id",
-  authenticate,
-  documentController.getDocumentById
-);
-
-router.patch(
-  "/:id/review",
-  authenticate,
-  documentController.reviewDocument
-);
-
-router.delete(
-  "/:id",
-  authenticate,
-  documentController.deleteDocument
-);
+router.post("/", uploadDocument.single("file"), documentController.uploadDocument);
+router.get("/", documentController.getAllDocuments);
+router.get("/my", documentController.getMyDocuments);
+router.get("/user/:userId", documentController.getDocumentsByUserId);
+router.get("/:id/download", documentController.downloadDocument);
+router.get("/:id", documentController.getDocumentById);
+router.patch("/:id/review", documentController.reviewDocument);
+router.delete("/:id", documentController.deleteDocument);
 
 export default router;

@@ -1,14 +1,19 @@
 import app from "./app";
 import dotenv from "dotenv";
 import "reflect-metadata";
-import { AppDataSource } from "./config/data-source";
+import { initializeDatabase } from "./config/database";
 
 dotenv.config();
 
 const PORT = Number(process.env.PORT) || 4000;
 
-AppDataSource.initialize()
+initializeDatabase()
   .then(() => {
-    app.listen(PORT);
+    app.listen(PORT, () => {
+      console.log(`Backend listening on port ${PORT}`);
+    });
   })
-  .catch(() => undefined);
+  .catch((error) => {
+    console.error("Failed to initialize backend", error);
+    process.exit(1);
+  });

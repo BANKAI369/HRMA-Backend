@@ -1,11 +1,28 @@
-import fs from "fs";
+import { access, mkdir, unlink } from "fs/promises";
+import path from "path";
+
+export const ensureDirectoryExists = async (directoryPath: string) => {
+  await mkdir(directoryPath, { recursive: true });
+};
+
+export const resolveDocumentUploadDirectory = () =>
+  path.join(process.cwd(), "uploads", "documents");
 
 export const deleteLocalFile = async (filePath: string) => {
   try {
-    if (fs.existsSync(filePath)) {
-      await fs.promises.unlink(filePath);
+    await unlink(filePath);
+  } catch (error: any) {
+    if (error?.code !== "ENOENT") {
+      throw error;
     }
-  } catch (error) {
-    console.error("Failed to delete file:", error);
+  }
+};
+
+export const localFileExists = async (filePath: string) => {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 };
