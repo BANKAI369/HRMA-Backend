@@ -61,6 +61,7 @@ const serializeUserManagementResponse = (
   isActive: user.isActive,
   mustChangePassword: user.mustChangePassword,
   role: serializeRole(user.role ?? null),
+  roles: serializeRoles(user.roles),
   department: serializeDepartment(user.department ?? null),
   jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
   createdAt: user.createdAt?.toISOString?.(),
@@ -87,7 +88,7 @@ const loadSerializedUserById = async (userId: string) => {
 
   const user = await userRepo.findOne({
     where: { id: userId },
-    relations: ["role", "department"],
+    relations: ["role", "roles", "department"],
   });
 
   if (!user) {
@@ -123,6 +124,7 @@ const buildUserSearchText = (
     user.username,
     user.email,
     user.role?.name,
+    ...(user.roles ?? []).map((role) => role.name),
     user.department?.name,
     user.jobTitle?.name,
   ]
@@ -136,6 +138,7 @@ const isSoftDeletedUser = (
     | {
         isActive?: boolean;
         role?: Role | { name?: string } | null;
+        roles?: Array<{ name?: string }> | null;
       }
 ) => !user.isActive && !user.role;
 
@@ -218,7 +221,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
     const userRepo = AppDataSource.getRepository(User);
     const users = (
       await userRepo.find({
-        relations: ["role", "department"],
+        relations: ["role", "roles", "department"],
       })
     ).filter((user) => !isSoftDeletedUser(user));
 
@@ -264,7 +267,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
 
 export async function getCurrentUser(req: AuthRequest, res: Response) {
   try {
-    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "roles", "department"]);
 
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });

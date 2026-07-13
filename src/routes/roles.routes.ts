@@ -23,6 +23,13 @@ router.get(
   authorizePermissions("view_roles"),
   controller.getRoles
 );
+router.post(
+  "/users/:userId/roles",
+  authenticate,
+  authorizeRoles("Admin"),
+  authorizePermissions("assign_role"),
+  controller.assignRoleToUser
+);
 router.get(
   "/:id",
   authenticate,

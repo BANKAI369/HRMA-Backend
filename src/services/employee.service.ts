@@ -95,6 +95,12 @@ const serializeRole = (role: Role | null) =>
       }
     : null;
 
+const serializeRoles = (roles: Role[] | null | undefined) =>
+  (roles ?? []).map((role) => ({
+    id: role.id,
+    name: role.name,
+  }));
+
 const serializeDepartment = (department: Department | null) =>
   department
     ? {
@@ -147,7 +153,8 @@ const serializeGroup = (group: EmployeeGroup | null) =>
       }
     : null;
 
-const isSoftDeletedUser = (user: User) => !user.isActive && !user.role;
+const isSoftDeletedUser = (user: User) =>
+  !user.isActive && !user.role && !(user.roles?.length ?? 0);
 
 export class EmployeeService {
   private buildUserCreationAuditSnapshot(user: User, profile: EmployeeProfile | null) {
@@ -156,6 +163,7 @@ export class EmployeeService {
       email: user.email,
       isActive: user.isActive,
       role: serializeRole(user.role ?? null),
+      roles: serializeRoles(user.roles),
       department: serializeDepartment(user.department ?? null),
       firstName: profile?.firstName ?? null,
       lastName: profile?.lastName ?? null,
@@ -178,6 +186,7 @@ export class EmployeeService {
       employeeCode: profile?.employeeCode ?? null,
       dateOfJoining: profile?.dateOfJoining ?? null,
       department: serializeDepartment(user.department ?? null),
+      roles: serializeRoles(user.roles),
       location: serializeLocation(profile?.location ?? null),
       jobTitle: serializeJobTitle(profile?.jobTitle ?? null),
       manager: serializeManager(profile?.manager ?? null),
@@ -189,6 +198,7 @@ export class EmployeeService {
   private buildRoleAuditSnapshot(user: User) {
     return {
       role: serializeRole(user.role ?? null),
+      roles: serializeRoles(user.roles),
     };
   }
 
@@ -209,6 +219,7 @@ export class EmployeeService {
       email: user.email,
       isActive: user.isActive,
       role: serializeRole(user.role ?? null),
+      roles: serializeRoles(user.roles),
       department: serializeDepartment(user.department ?? null),
       personalDetails: {
         firstName,
@@ -265,7 +276,7 @@ export class EmployeeService {
   private async loadUser(userId: string) {
     const user = await userRepository.findOne({
       where: { id: userId },
-      relations: ["role", "department"],
+      relations: ["role", "roles", "department"],
     });
 
     if (!user || isSoftDeletedUser(user)) {
@@ -458,7 +469,7 @@ export class EmployeeService {
 
     const manager = await userRepository.findOne({
       where: { id: normalizedManagerUserId },
-      relations: ["role"],
+      relations: ["role", "roles"],
     });
 
     if (!manager || isSoftDeletedUser(manager)) {
@@ -471,7 +482,7 @@ export class EmployeeService {
   async findAll(search?: string) {
     const users = (
       await userRepository.find({
-        relations: ["role", "department"],
+        relations: ["role", "roles", "department"],
       })
     ).filter((user) => !isSoftDeletedUser(user));
 
@@ -503,6 +514,7 @@ export class EmployeeService {
           employee.username,
           employee.email,
           employee.role?.name,
+          ...(employee.roles ?? []).map((role) => role.name),
           employee.department?.name,
           employee.personalDetails.firstName,
           employee.personalDetails.lastName,
@@ -570,6 +582,7 @@ export class EmployeeService {
         isActive: true,
         role,
         roleId: role.id,
+        roles: [role],
         department: department ?? null,
         departmentId: department?.id ?? null,
       });
@@ -736,6 +749,7 @@ export class EmployeeService {
     if (role !== undefined) {
       user.role = role;
       user.roleId = role?.id ?? null;
+      user.roles = role ? [role] : [];
     }
 
     if (typeof data.isActive === "boolean") {

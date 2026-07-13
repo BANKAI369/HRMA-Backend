@@ -20,6 +20,10 @@ const sanitizeUser = (user: User) => ({
         name: user.role.name,
       }
     : null,
+  roles: (user.roles ?? []).map((role) => ({
+    id: role.id,
+    name: role.name,
+  })),
   department: user.department
     ? {
         id: user.department.id,
@@ -188,6 +192,7 @@ export class AuthService {
         mustChangePassword: !data.password,
         isActive: true,
         role,
+        roles: [role],
       })
     );
 
