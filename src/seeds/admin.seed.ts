@@ -40,7 +40,6 @@ export const seedAdmin = async () => {
     mustChangePassword: false,
     isActive: true,
     role: adminRole,
-    roles: [adminRole],
   });
 
   await userRepo.save(adminUser);

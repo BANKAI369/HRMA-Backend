@@ -11,6 +11,9 @@ import { Currency } from "../entities/Currency";
 import { Department } from "../entities/Department";
 import { Document } from "../entities/Document";
 import { DocumentType } from "../entities/DocumentTypes";
+import { Organization } from "../entities/Organization";
+import { OrganizationInvite } from "../entities/OrganizationInvite";
+import { Tenant } from "../entities/Tenant";
 import { EmployeeFnF } from "../entities/EmployeeFnF";
 import { EmployeeGroup } from "../entities/EmployeeGroup";
 import { EmployeeProfile } from "../entities/EmployeeProfile";
@@ -23,7 +26,10 @@ import { JobTitle } from "../entities/JobTitle";
 import { LeaveRequest } from "../entities/LeaveRequest";
 import { LeaveType } from "../entities/LeaveType";
 import { Location } from "../entities/Location";
+import { Module } from "../entities/Module";
 import { NoticePeriod } from "../entities/NoticePeriod";
+import { Organization } from "../entities/Organization";
+import { Tenant } from "../entities/Tenant";
 import { PayBand } from "../entities/PayBand";
 import { PayBatch } from "../entities/PayBatch";
 import { PayCycle } from "../entities/PayCycle";
@@ -31,6 +37,7 @@ import { PayGrade } from "../entities/PayGrade";
 import { PayGroup } from "../entities/PayGroup";
 import { Permission } from "../entities/permission";
 import { Role } from "../entities/role";
+import { Module } from "../entities/Module";
 import { SalaryComponent } from "../entities/SalaryComponent";
 import { ShiftPolicy } from "../entities/ShiftPolicy";
 import { TrackingPolicy } from "../entities/TrackingPolicy";
@@ -56,7 +63,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "Bankai@123",
   database: process.env.DB_NAME || "HRMA",
-  synchronize: (process.env.DB_SYNCHRONIZE || "false").toLowerCase() === "true",
+  synchronize:false,
   logging: false,
   entities: [
     User,
@@ -66,6 +73,7 @@ export const AppDataSource = new DataSource({
     CaptureScheme,
     Role,
     Permission,
+    Module,
     Department,
     Document,
     DocumentType,
@@ -83,6 +91,10 @@ export const AppDataSource = new DataSource({
     ExitRequest,
     LeaveType,
     LeaveRequest,
+    Location,
+    Module,
+    Tenant,
+    Organization,
     PayBand,
     PayBatch,
     PayCycle,
@@ -95,6 +107,9 @@ export const AppDataSource = new DataSource({
     WeeklyOffPolicy,
     ProjectPhase,
     Client,
+    Organization,
+    OrganizationInvite,
+    Tenant,
     Project,
     TimeFrame,
     Goal,

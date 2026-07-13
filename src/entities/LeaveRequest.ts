@@ -52,3 +52,4 @@ export class LeaveRequest extends BaseEntity {
   @Column({ name: "review_remarks", type: "text", nullable: true })
   reviewRemarks: string | null;
 }
+

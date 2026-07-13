@@ -28,27 +28,5 @@ export const resolveRequestRoles = (req: AuthRequest): Roles[] => {
   return [...new Set(allRoles)];
 };
 
-export const resolveRequestRole = (req: AuthRequest): Roles => {
-  const roles = resolveRequestRoles(req);
-
-  for (const role of ROLE_PRIORITY) {
-    if (roles.includes(role)) {
-      return role;
-    }
-  }
-
-  return roles[0] ?? Roles.Employee;
-};
-
-export const hasRequestRole = (req: AuthRequest, allowedRoles: string[]) => {
-  const normalizedAllowedRoles = allowedRoles
-    .map((role) => role.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!normalizedAllowedRoles.length) {
-    return true;
-  }
-
-  const requestRoles = resolveRequestRoles(req).map((role) => role.toLowerCase());
-  return requestRoles.some((role) => normalizedAllowedRoles.includes(role));
+  return Roles.Employee;
 };

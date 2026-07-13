@@ -1,6 +1,1 @@
-export enum LeaveStatus {
-  PENDING = "Pending",
-  APPROVED = "Approved",
-  REJECTED = "Rejected",
-  CANCELLED = "Cancelled",
-}
+export { LeaveStatus } from "../enum/leaveStatus.enum";

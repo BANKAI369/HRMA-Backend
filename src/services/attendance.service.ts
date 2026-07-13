@@ -1,3 +1,4 @@
+import { Injectable } from "@nestjs/common";
 import { AppDataSource } from "../config/data-source";
 import { AttendanceRecord } from "../entities/AttendanceRecord";
 import { CaptureScheme } from "../entities/CaptureScheme";
@@ -7,6 +8,7 @@ import { ShiftPolicy } from "../entities/ShiftPolicy";
 import { TrackingPolicy } from "../entities/TrackingPolicy";
 import { User } from "../entities/User";
 import { WeeklyOffPolicy } from "../entities/WeeklyOffPolicy";
+import { CalendarEventDto } from "../modules/calendar/dto/calendar-response.dto";
 
 const attendanceRepository = AppDataSource.getRepository(AttendanceRecord);
 const captureSchemeRepository = AppDataSource.getRepository(CaptureScheme);
@@ -83,6 +85,7 @@ const deriveAttendanceDate = (isoDateTime: string) => {
 
 const toNumber = (value: string | number) => Number(value);
 
+@Injectable()
 export class AttendanceService {
   private serializeAttendanceRecord(record: AttendanceRecord) {
     return {
@@ -409,5 +412,18 @@ export class AttendanceService {
     });
 
     return policies.map((policy) => this.serializeWeeklyOffPolicy(policy));
+  }
+
+  async getCalendarEvents(
+    _startDate: string,
+    _endDate: string,
+    _filters: {
+      tenantId?: string | null;
+      userId?: string | null;
+      departmentId?: string | null;
+    } = {}
+  ): Promise<CalendarEventDto[]> {
+    // Future attendance calendar events will be merged here.
+    return [];
   }
 }

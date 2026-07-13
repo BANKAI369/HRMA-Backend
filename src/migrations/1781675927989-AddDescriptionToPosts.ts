@@ -1,0 +1,124 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class AddDescriptionToPosts1781675927989 implements MigrationInterface {
+    name = 'AddDescriptionToPosts1781675927989'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "FK_tenants"`);
+        await queryRunner.query(`ALTER TABLE "permissions" DROP CONSTRAINT "FK_permissions_module_id"`);
+        await queryRunner.query(`ALTER TABLE "departments" DROP CONSTRAINT "FK_departments_tenant"`);
+        await queryRunner.query(`ALTER TABLE "departments" DROP CONSTRAINT "FK_departments_organization"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "FK_users_tenant"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "FK_users_organization"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_organization_invites_tenant"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_organization_invites_organization"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_organization_invites_invited_by"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_organization_invites_accepted_by"`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" DROP CONSTRAINT "FK_department_permissions_department"`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" DROP CONSTRAINT "FK_department_permissions_permission"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_organizations_tenant_id"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_permissions_module_id"`);
+        await queryRunner.query(`DROP INDEX "public"."UQ_departments_tenant_org_name"`);
+        await queryRunner.query(`DROP INDEX "public"."UQ_users_tenant_username"`);
+        await queryRunner.query(`DROP INDEX "public"."UQ_users_tenant_email"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_organization_invites_scope"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_department_permissions_department_id"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_department_permissions_permission_id"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_user_roles_user_id"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_user_roles_role_id"`);
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "UQ_e6ff0f52c3a8e5a8f7f5c7f6f5f"`);
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "UQ_f6f0f52c3a8e5a8f7f5c7f6f5f6"`);
+        await queryRunner.query(`CREATE TABLE "posts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "authorId" character varying NOT NULL, "tenantId" character varying NOT NULL, "content" text NOT NULL, "visibility" character varying NOT NULL DEFAULT 'TEAM', CONSTRAINT "PK_2829ac61eff60fcec60d7274b9e" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN "createdAt"`);
+        await queryRunner.query(`ALTER TABLE "tenants" ADD "createdAt" TIMESTAMP NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN "updatedAt"`);
+        await queryRunner.query(`ALTER TABLE "tenants" ADD "updatedAt" TIMESTAMP NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "modules" DROP COLUMN "createdAt"`);
+        await queryRunner.query(`ALTER TABLE "modules" ADD "createdAt" TIMESTAMP NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "modules" DROP COLUMN "updatedAt"`);
+        await queryRunner.query(`ALTER TABLE "modules" ADD "updatedAt" TIMESTAMP NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "permissions" DROP COLUMN "description"`);
+        await queryRunner.query(`ALTER TABLE "permissions" ADD "description" text`);
+        await queryRunner.query(`CREATE INDEX "IDX_6a604945ba103f0e74f996cdc3" ON "department_permissions" ("department_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_39e312446f4735d5bda8497ed1" ON "department_permissions" ("permission_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_87b8888186ca9769c960e92687" ON "user_roles" ("user_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_b23c65e50a758245a33ee35fda" ON "user_roles" ("role_id") `);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "UQ_aff4e1aba820a84ce77efc6f12c" UNIQUE ("tenant_id", "name")`);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "UQ_07fe2dd391c45356b6a65ebdbb3" UNIQUE ("tenant_id", "code")`);
+        await queryRunner.query(`ALTER TABLE "departments" ADD CONSTRAINT "UQ_aab1e92247b84fdc420759b265a" UNIQUE ("tenant_id", "organization_id", "name")`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "UQ_e9f4c2efab52114c4e99e28efb1" UNIQUE ("tenant_id", "email")`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "UQ_52a29f8fc340e73d124af517f22" UNIQUE ("tenant_id", "username")`);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "FK_73cf5671daf6562fae8c1a2df99" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "permissions" ADD CONSTRAINT "FK_738f46bb9ac6ea356f1915835d0" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "departments" ADD CONSTRAINT "FK_146fd7019eea73f8ee7bbb52d4a" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "departments" ADD CONSTRAINT "FK_71070628c130f2c9cd3cd5f082f" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "FK_109638590074998bb72a2f2cf08" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "FK_21a659804ed7bf61eb91688dea7" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_16358f5b6138f4c3ae6200b2084" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_86ee44dc17238efe40601b14540" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_53804fe63b47f0f621388c16cdb" FOREIGN KEY ("invited_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_22a93611a824b7938d4b1119818" FOREIGN KEY ("accepted_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" ADD CONSTRAINT "FK_6a604945ba103f0e74f996cdc3b" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" ADD CONSTRAINT "FK_39e312446f4735d5bda8497ed13" FOREIGN KEY ("permission_id") REFERENCES "permissions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "department_permissions" DROP CONSTRAINT "FK_39e312446f4735d5bda8497ed13"`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" DROP CONSTRAINT "FK_6a604945ba103f0e74f996cdc3b"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_22a93611a824b7938d4b1119818"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_53804fe63b47f0f621388c16cdb"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_86ee44dc17238efe40601b14540"`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" DROP CONSTRAINT "FK_16358f5b6138f4c3ae6200b2084"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "FK_21a659804ed7bf61eb91688dea7"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "FK_109638590074998bb72a2f2cf08"`);
+        await queryRunner.query(`ALTER TABLE "departments" DROP CONSTRAINT "FK_71070628c130f2c9cd3cd5f082f"`);
+        await queryRunner.query(`ALTER TABLE "departments" DROP CONSTRAINT "FK_146fd7019eea73f8ee7bbb52d4a"`);
+        await queryRunner.query(`ALTER TABLE "permissions" DROP CONSTRAINT "FK_738f46bb9ac6ea356f1915835d0"`);
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "FK_73cf5671daf6562fae8c1a2df99"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "UQ_52a29f8fc340e73d124af517f22"`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "UQ_e9f4c2efab52114c4e99e28efb1"`);
+        await queryRunner.query(`ALTER TABLE "departments" DROP CONSTRAINT "UQ_aab1e92247b84fdc420759b265a"`);
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "UQ_07fe2dd391c45356b6a65ebdbb3"`);
+        await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "UQ_aff4e1aba820a84ce77efc6f12c"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_b23c65e50a758245a33ee35fda"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_87b8888186ca9769c960e92687"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_39e312446f4735d5bda8497ed1"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_6a604945ba103f0e74f996cdc3"`);
+        await queryRunner.query(`ALTER TABLE "permissions" DROP COLUMN "description"`);
+        await queryRunner.query(`ALTER TABLE "permissions" ADD "description" character varying NOT NULL DEFAULT true`);
+        await queryRunner.query(`ALTER TABLE "modules" DROP COLUMN "updatedAt"`);
+        await queryRunner.query(`ALTER TABLE "modules" ADD "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "modules" DROP COLUMN "createdAt"`);
+        await queryRunner.query(`ALTER TABLE "modules" ADD "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN "updatedAt"`);
+        await queryRunner.query(`ALTER TABLE "tenants" ADD "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN "createdAt"`);
+        await queryRunner.query(`ALTER TABLE "tenants" ADD "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()`);
+        await queryRunner.query(`DROP TABLE "posts"`);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "UQ_f6f0f52c3a8e5a8f7f5c7f6f5f6" UNIQUE ("tenant_id", "name")`);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "UQ_e6ff0f52c3a8e5a8f7f5c7f6f5f" UNIQUE ("tenant_id", "code")`);
+        await queryRunner.query(`CREATE INDEX "IDX_user_roles_role_id" ON "user_roles" ("role_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_user_roles_user_id" ON "user_roles" ("user_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_department_permissions_permission_id" ON "department_permissions" ("permission_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_department_permissions_department_id" ON "department_permissions" ("department_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_organization_invites_scope" ON "organization_invites" ("email", "organization_id", "tenant_id") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "UQ_users_tenant_email" ON "users" ("email", "tenant_id") WHERE (tenant_id IS NOT NULL)`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "UQ_users_tenant_username" ON "users" ("tenant_id", "username") WHERE (tenant_id IS NOT NULL)`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "UQ_departments_tenant_org_name" ON "departments" ("name", "organization_id", "tenant_id") WHERE ((tenant_id IS NOT NULL) AND (organization_id IS NOT NULL))`);
+        await queryRunner.query(`CREATE INDEX "IDX_permissions_module_id" ON "permissions" ("module_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_organizations_tenant_id" ON "organizations" ("tenant_id") `);
+        await queryRunner.query(`ALTER TABLE "department_permissions" ADD CONSTRAINT "FK_department_permissions_permission" FOREIGN KEY ("permission_id") REFERENCES "permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
+        await queryRunner.query(`ALTER TABLE "department_permissions" ADD CONSTRAINT "FK_department_permissions_department" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_organization_invites_accepted_by" FOREIGN KEY ("accepted_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_organization_invites_invited_by" FOREIGN KEY ("invited_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_organization_invites_organization" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organization_invites" ADD CONSTRAINT "FK_organization_invites_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "FK_users_organization" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "FK_users_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "departments" ADD CONSTRAINT "FK_departments_organization" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "departments" ADD CONSTRAINT "FK_departments_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "permissions" ADD CONSTRAINT "FK_permissions_module_id" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "FK_tenants" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+    }
+
+}

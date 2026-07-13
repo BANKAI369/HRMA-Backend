@@ -5,19 +5,13 @@ const DEFAULT_JWT_SECRET = "hrma-dev-secret";
 
 export const getJwtSecret = () => process.env.JWT_SECRET?.trim() || DEFAULT_JWT_SECRET;
 
-const getTokenRoles = (user: User) => {
-  const roles = user.roles?.length ? user.roles : user.role ? [user.role] : [];
-  return [...new Set(roles.map((role) => role.name).filter(Boolean))];
-};
-
 export const signAuthToken = (user: User) =>
   jwt.sign(
     {
       id: user.id,
       email: user.email,
       username: user.username,
-      role: user.role?.name || user.roles?.[0]?.name || "Employee",
-      roles: getTokenRoles(user),
+      role: user.role?.name || "Employee",
     },
     getJwtSecret(),
     {

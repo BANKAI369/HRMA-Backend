@@ -45,9 +45,6 @@ const idParamSchema = z.object({
 const serializeRole = (role: Role | null) =>
   role ? { id: role.id, name: role.name } : null;
 
-const serializeRoles = (roles: Role[] | null | undefined) =>
-  (roles ?? []).map((role) => ({ id: role.id, name: role.name }));
-
 const serializeDepartment = (department: Department | null) =>
   department ? { id: department.id, name: department.name } : null;
 
@@ -143,7 +140,7 @@ const isSoftDeletedUser = (
         role?: Role | { name?: string } | null;
         roles?: Array<{ name?: string }> | null;
       }
-) => !user.isActive && !user.role && !(user.roles?.length ?? 0);
+) => !user.isActive && !user.role;
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -293,7 +290,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
 export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const currentUser = await resolveAuthenticatedUser(req, ["role", "roles", "department"]);
+    const currentUser = await resolveAuthenticatedUser(req, ["role", "department"]);
     const requesterId = req.user?.id ?? null;
     const requesterEmail = req.user?.email || null;
 
@@ -314,7 +311,7 @@ export const getUsersByDepartment = async (req: AuthRequest, res: Response) => {
     const users = (
       await userRepo.find({
         where: { departmentId: currentUser.department.id },
-        relations: ["department", "role", "roles"],
+        relations: ["department", "role"],
       })
     ).filter((user) => {
       if (requesterEmail && user.email === requesterEmail) {
@@ -414,7 +411,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
     const user = await userRepo.findOne({
       where: { id: paramsParsed.data.id },
-      relations: ["role", "roles", "department"],
+      relations: ["role", "department"],
     });
 
     if (!user) {
@@ -493,7 +490,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
       user.role = roleEntity;
       user.roleId = roleEntity.id;
-      user.roles = [roleEntity];
     }
 
     if (typeof isActive === "boolean") {

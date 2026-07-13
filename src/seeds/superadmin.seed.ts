@@ -2,13 +2,14 @@ import { AppDataSource } from "../config/data-source";
 import bcrypt from "bcryptjs";
 import { User } from "../entities/User";
 import { Role } from "../entities/role";
+import { resolvePrimaryTenant } from "../utils/tenant.utils";
 
 export const seedSuperAdmin = async () => {
   const userRepo = AppDataSource.getRepository(User);
   const roleRepo = AppDataSource.getRepository(Role);
 
   const email = process.env.SUPER_ADMIN_EMAIL;
-  const username = process.env.SUPER_ADMIN_USERNAME;
+  const username = process.env.SUPER_ADMIN_USERNAME || "ADMINNGENUX";
   const password = process.env.SUPER_ADMIN_PASSWORD;
 
   if (!email || !username || !password) {
@@ -30,8 +31,10 @@ export const seedSuperAdmin = async () => {
     );
   }
 
+  const tenant = await resolvePrimaryTenant();
+
   const existingUser = await userRepo.findOne({
-    where: { email },
+    where: tenant ? { tenantId: tenant.id, email } : { email },
   });
 
   if (existingUser) {
@@ -50,6 +53,8 @@ export const seedSuperAdmin = async () => {
     password: hashedPassword,
     mustChangePassword: false,
     isActive: true,
+    tenant: tenant ?? null,
+    tenantId: tenant?.id ?? null,
     role: superAdminRole,
     roles: [superAdminRole],
   });

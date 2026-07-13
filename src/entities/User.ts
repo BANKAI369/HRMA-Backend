@@ -1,7 +1,15 @@
-import { Entity, Column, ManyToOne, ManyToMany, JoinColumn, JoinTable } from "typeorm";
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  ManyToMany,
+  JoinTable,
+} from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Department } from "./Department";
 import { Role } from "./role";
+import { Tenant } from "./Tenant";
 
 @Entity("users")
 export class User extends BaseEntity {
@@ -19,6 +27,16 @@ export class User extends BaseEntity {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @ManyToOne(() => Tenant, (tenant) => tenant.users, {
+    nullable: true,
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant | null;
+
+  @Column({ name: "tenant_id", type: "uuid", nullable: true })
+  tenantId: string | null;
 
   @ManyToOne(() => Department, (department) => department.employees, {
     nullable: true,
@@ -40,7 +58,7 @@ export class User extends BaseEntity {
   @Column({ name: "role_id", type: "uuid", nullable: true })
   roleId: string | null;
 
-  @ManyToMany(() => Role)
+  @ManyToMany(() => Role, (role) => role.users)
   @JoinTable({
     name: "user_roles",
     joinColumn: {
