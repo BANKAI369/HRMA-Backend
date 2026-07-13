@@ -23,7 +23,10 @@ import { JobTitle } from "../entities/JobTitle";
 import { LeaveRequest } from "../entities/LeaveRequest";
 import { LeaveType } from "../entities/LeaveType";
 import { Location } from "../entities/Location";
+import { Module } from "../entities/Module";
 import { NoticePeriod } from "../entities/NoticePeriod";
+import { Organization } from "../entities/Organization";
+import { Tenant } from "../entities/Tenant";
 import { PayBand } from "../entities/PayBand";
 import { PayBatch } from "../entities/PayBatch";
 import { PayCycle } from "../entities/PayCycle";
@@ -83,6 +86,10 @@ export const AppDataSource = new DataSource({
     ExitRequest,
     LeaveType,
     LeaveRequest,
+    Location,
+    Module,
+    Tenant,
+    Organization,
     PayBand,
     PayBatch,
     PayCycle,
