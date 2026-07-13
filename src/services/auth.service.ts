@@ -26,6 +26,13 @@ const sanitizeUser = (user: User) => ({
         name: user.department.name,
       }
     : null,
+  tenant: user.tenant
+    ? {
+        id: user.tenant.id,
+        name: user.tenant.name,
+        slug: user.tenant.slug,
+      }
+    : null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -81,7 +88,7 @@ export class AuthService {
 
     const fullUser = await userRepo.findOneOrFail({
       where: { id: user.id },
-      relations: ["role", "department"],
+      relations: ["role", "department", "tenant"],
     });
 
     return {
@@ -95,7 +102,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await userRepo.findOne({
       where: { email: normalizedEmail },
-      relations: ["role", "department"],
+      relations: ["role", "department", "tenant"],
     });
 
     if (!user) {
@@ -122,7 +129,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await userRepo.findOne({
       where: { email: normalizedEmail },
-      relations: ["role", "department"],
+      relations: ["role", "department", "tenant"],
     });
 
     if (!user) {
@@ -146,7 +153,7 @@ export class AuthService {
         identity.id ? { id: identity.id } : undefined,
         identity.email ? { email: identity.email.toLowerCase() } : undefined,
       ].filter(Boolean) as Array<{ id?: string; email?: string }>,
-      relations: ["role", "department"],
+      relations: ["role", "department", "tenant"],
     });
 
     if (!user) {
@@ -184,7 +191,7 @@ export class AuthService {
 
     const fullUser = await userRepo.findOneOrFail({
       where: { id: user.id },
-      relations: ["role", "department"],
+      relations: ["role", "department", "tenant"],
     });
 
     return {
