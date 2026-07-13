@@ -1,5 +1,6 @@
 import { Entity, Column, ManyToMany, ManyToOne, JoinColumn } from "typeorm";
 import { BaseEntity } from "./base.entity";
+import { Module } from "./Module";
 import { Role } from "./role";
 import { Module } from "./Module";
 

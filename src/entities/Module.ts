@@ -1,18 +1,15 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
 } from "typeorm";
+import { BaseEntity } from "./base.entity";
 import { Permission } from "./permission";
 
 @Entity("modules")
-export class Module {
-  @PrimaryGeneratedColumn("uuid")
-  id!: string;
-
+export class Module extends BaseEntity {
   @Column({
     unique: true,
     length: 50,
@@ -37,10 +34,4 @@ export class Module {
     default: true,
   })
   isActive!: boolean;
-
-  @CreateDateColumn()
-  createdAt!: Date;
-
-  @UpdateDateColumn()
-  updatedAt!: Date;
 }
