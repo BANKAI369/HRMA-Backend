@@ -1,4 +1,11 @@
-import { Entity, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from "typeorm";
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  ManyToMany,
+  JoinTable,
+} from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Department } from "./Department";
 import { Role } from "./role";
@@ -51,7 +58,7 @@ export class User extends BaseEntity {
   @Column({ name: "role_id", type: "uuid", nullable: true })
   roleId: string | null;
 
-  @ManyToMany(() => Role, (role) => role.usersMany)
+  @ManyToMany(() => Role, (role) => role.users)
   @JoinTable({
     name: "user_roles",
     joinColumn: {

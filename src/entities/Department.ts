@@ -18,6 +18,16 @@ export class Department extends BaseEntity {
   @Column({ unique: true })
   name: string;
 
+  @Column({ type: "uuid", name: "organization_id", nullable: true })
+  organizationId: string | null;
+
+  @ManyToOne(() => Organization, (organization) => organization.departments, {
+    nullable: true,
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({ name: "organization_id" })
+  organization: Organization | null;
+
   // one department → many employees
   @OneToMany(() => User, (user) => user.department)
   employees: User[];

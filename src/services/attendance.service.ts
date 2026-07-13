@@ -1,3 +1,4 @@
+import { Injectable } from "@nestjs/common";
 import { AppDataSource } from "../config/data-source";
 import { AttendanceRecord } from "../entities/AttendanceRecord";
 import { CaptureScheme } from "../entities/CaptureScheme";
@@ -84,6 +85,7 @@ const deriveAttendanceDate = (isoDateTime: string) => {
 
 const toNumber = (value: string | number) => Number(value);
 
+@Injectable()
 export class AttendanceService {
   private serializeAttendanceRecord(record: AttendanceRecord) {
     return {

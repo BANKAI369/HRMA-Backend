@@ -669,4 +669,20 @@ export class LeaveService {
 
     return this.getLeaveRequest(savedLeaveRequest.id);
   }
+
+  async approveLeaveRequest(
+    id: string,
+    reviewerId: string,
+    reviewRemarks?: string | null
+  ) {
+    return this.reviewLeaveRequest(id, reviewerId, LeaveStatus.APPROVED, reviewRemarks);
+  }
+
+  async rejectLeaveRequest(
+    id: string,
+    reviewerId: string,
+    reviewRemarks?: string | null
+  ) {
+    return this.reviewLeaveRequest(id, reviewerId, LeaveStatus.REJECTED, reviewRemarks);
+  }
 }
