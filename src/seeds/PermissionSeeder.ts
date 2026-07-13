@@ -54,7 +54,7 @@ export async function seedLeaveTypePermissions() {
     const exists = await permissionRepo.findOne({ where: { name: p.name } });
     if (!exists) {
       await permissionRepo.save(
-        permissionRepo.create({ ...p, moduleId: leaveModule.id })
+        permissionRepo.create({ ...p, module: leaveModule })
       );
     }
   }

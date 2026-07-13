@@ -1,4 +1,4 @@
-import { PolicyAssignmentType } from "../../entities/PolicyAssignment";
+import { PolicyAssignmentType } from "../../../entities/PolicyAssignment";
 
 export interface CreatePolicyAssignmentDto {
   policyId: string;
